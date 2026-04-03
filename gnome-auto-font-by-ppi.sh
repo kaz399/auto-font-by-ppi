@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Copyright 2026 Yabe Kazuhiro
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 ###############################################################################
 # Default settings
 # These can be overridden by command-line options.
@@ -9,6 +29,9 @@ set -euo pipefail
 DEFAULT_DRY_RUN=1
 DEFAULT_PREFERRED_DISPLAY=""
 DEFAULT_APPLY_MODE="full_fonts"
+DEFAULT_MIN_REASONABLE_PPI=50
+DEFAULT_MAX_REASONABLE_PPI=400
+DEFAULT_CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/gnome-auto-font-by-ppi.conf"
 
 UI_FONT_FAMILY="Cantarell"
 DOC_FONT_FAMILY="Cantarell"
@@ -19,9 +42,9 @@ TITLE_FONT_FAMILY="Cantarell Bold"
 #   max_ppi:text_scaling:ui_font_size:doc_font_size:mono_font_size:title_font_size
 PPI_PROFILES=(
   "110:1.00:11:11:10:11"
-  "140:1.10:12:12:11:12"
-  "180:1.25:13:13:12:13"
-  "240:1.40:14:14:13:14"
+  "140:1.00:12:12:11:12"
+  "180:1.00:13:13:12:13"
+  "240:1.00:14:14:13:14"
   "9999:1.60:16:16:14:16"
 )
 
@@ -33,6 +56,11 @@ DRY_RUN="$DEFAULT_DRY_RUN"
 PREFERRED_DISPLAY="$DEFAULT_PREFERRED_DISPLAY"
 APPLY_MODE="$DEFAULT_APPLY_MODE"
 VERBOSE=0
+MIN_REASONABLE_PPI="$DEFAULT_MIN_REASONABLE_PPI"
+MAX_REASONABLE_PPI="$DEFAULT_MAX_REASONABLE_PPI"
+CONFIG_FILE="$DEFAULT_CONFIG_FILE"
+
+declare -A DISPLAY_DIAGONAL_OVERRIDES=()
 
 ###############################################################################
 # Helpers
@@ -58,7 +86,7 @@ die() {
 }
 
 usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage:
   gnome-auto-font-by-ppi.sh [options]
 
@@ -81,6 +109,19 @@ Options:
   --display NAME
       Use the specified display name instead of auto-detecting.
       Example: --display eDP-1
+
+  --display-diagonal NAME=INCHES
+      Override the physical monitor size using a manual diagonal size.
+      This option may be specified multiple times.
+      Example: --display-diagonal HDMI-1=31.5
+
+  --config PATH
+      Load a Bash-style config file before applying command-line overrides.
+      Default: ${XDG_CONFIG_HOME:-$HOME/.config}/gnome-auto-font-by-ppi.conf
+
+  MONITOR_DIAGONAL_OVERRIDES
+      Comma-separated list of NAME=INCHES entries.
+      Example: MONITOR_DIAGONAL_OVERRIDES="HDMI-1=31.5,eDP-1=14.0"
 
   --mode MODE
       Set apply mode.
@@ -111,6 +152,10 @@ Notes:
   - On Xorg, display detection uses xrandr.
   - On GNOME Wayland, it tries Mutter DisplayConfig over D-Bus.
   - Physical monitor size may come from EDID and can be inaccurate on some setups.
+  - If EDID reports bogus millimeter values, use --display-diagonal or
+    MONITOR_DIAGONAL_OVERRIDES to provide a manual size.
+  - Config files may set variables such as PREFERRED_DISPLAY, APPLY_MODE,
+    MONITOR_DIAGONAL_OVERRIDES, MIN_REASONABLE_PPI, and MAX_REASONABLE_PPI.
 EOF
 }
 
@@ -123,6 +168,133 @@ calc_ppi() {
       diag_in = sqrt(((wmm/25.4)*(wmm/25.4)) + ((hmm/25.4)*(hmm/25.4)))
       printf "%.2f\n", diag_px / diag_in
     }'
+}
+
+is_positive_number() {
+  local value="$1"
+  [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]]
+}
+
+set_display_diagonal_override() {
+  local spec="$1"
+  local name="${spec%%=*}"
+  local diagonal="${spec#*=}"
+
+  [[ -n "$name" && "$spec" == *"="* ]] || die "Invalid display diagonal override: $spec"
+  is_positive_number "$diagonal" || die "Invalid diagonal value in override: $spec"
+
+  DISPLAY_DIAGONAL_OVERRIDES["$name"]="$diagonal"
+}
+
+load_display_diagonal_overrides_from_env() {
+  local overrides="${MONITOR_DIAGONAL_OVERRIDES:-}"
+  [[ -n "$overrides" ]] || return 0
+
+  local old_ifs="$IFS"
+  local item
+  IFS=','
+  for item in $overrides; do
+    item="${item#"${item%%[![:space:]]*}"}"
+    item="${item%"${item##*[![:space:]]}"}"
+    [[ -n "$item" ]] || continue
+    set_display_diagonal_override "$item"
+  done
+  IFS="$old_ifs"
+}
+
+load_config_file() {
+  local path="$1"
+  [[ -f "$path" ]] || return 0
+
+  # shellcheck disable=SC1090
+  source "$path"
+}
+
+preparse_config_arg() {
+  local args=("$@")
+  local i=0
+
+  while [[ $i -lt ${#args[@]} ]]; do
+    case "${args[$i]}" in
+      --config)
+        (( i + 1 < ${#args[@]} )) || die "--config requires a value"
+        CONFIG_FILE="${args[$((i + 1))]}"
+        i=$((i + 2))
+        ;;
+      *)
+        i=$((i + 1))
+        ;;
+    esac
+  done
+}
+
+derive_mm_from_diagonal_inches() {
+  local wpx="$1" hpx="$2" diagonal_in="$3"
+  awk -v wpx="$wpx" -v hpx="$hpx" -v diagonal_in="$diagonal_in" '
+    BEGIN {
+      diag_px = sqrt((wpx*wpx) + (hpx*hpx))
+      if (diag_px <= 0 || diagonal_in <= 0) exit 1
+      width_mm = (wpx / diag_px) * diagonal_in * 25.4
+      height_mm = (hpx / diag_px) * diagonal_in * 25.4
+      printf "%d\t%d\n", int(width_mm + 0.5), int(height_mm + 0.5)
+    }'
+}
+
+is_suspicious_display_metrics() {
+  local wpx="$1" hpx="$2" wmm="$3" hmm="$4" ppi="$5"
+  awk \
+    -v wpx="$wpx" \
+    -v hpx="$hpx" \
+    -v wmm="$wmm" \
+    -v hmm="$hmm" \
+    -v ppi="$ppi" \
+    -v min_ppi="$MIN_REASONABLE_PPI" \
+    -v max_ppi="$MAX_REASONABLE_PPI" '
+    BEGIN {
+      suspicious = 0
+      if (wmm <= 0 || hmm <= 0) suspicious = 1
+      if (wmm == wpx && hmm == hpx) suspicious = 1
+      if (ppi < min_ppi || ppi > max_ppi) suspicious = 1
+      exit suspicious ? 0 : 1
+    }'
+}
+
+apply_manual_size_override_if_needed() {
+  local line="$1"
+  local reason="$2"
+  local name is_primary wpx hpx wmm hmm ppi override diagonal derived_mm derived_wmm derived_hmm
+
+  IFS=$'\t' read -r name is_primary wpx hpx wmm hmm ppi <<<"$line"
+  override="${DISPLAY_DIAGONAL_OVERRIDES[$name]:-}"
+  [[ -n "$override" ]] || return 1
+
+  derived_mm="$(derive_mm_from_diagonal_inches "$wpx" "$hpx" "$override")" || return 1
+  IFS=$'\t' read -r derived_wmm derived_hmm <<<"$derived_mm"
+  ppi="$(calc_ppi "$wpx" "$hpx" "$derived_wmm" "$derived_hmm")" || return 1
+
+  vlog "Using manual diagonal override for ${name}: ${override} inches (${reason})"
+  printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    "$name" "$is_primary" "$wpx" "$hpx" "$derived_wmm" "$derived_hmm" "$ppi"
+  return 0
+}
+
+normalize_display_info() {
+  local info="$1"
+  local line name is_primary wpx hpx wmm hmm ppi
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    IFS=$'\t' read -r name is_primary wpx hpx wmm hmm ppi <<<"$line"
+
+    if is_suspicious_display_metrics "$wpx" "$hpx" "$wmm" "$hmm" "$ppi"; then
+      if apply_manual_size_override_if_needed "$line" "suspicious physical size"; then
+        continue
+      fi
+      vlog "Keeping detected metrics for ${name} despite suspicious values because no manual override was provided."
+    fi
+
+    printf '%s\n' "$line"
+  done <<<"$info"
 }
 
 ###############################################################################
@@ -143,6 +315,16 @@ parse_args() {
       --display)
         [[ $# -ge 2 ]] || die "--display requires a value"
         PREFERRED_DISPLAY="$2"
+        shift 2
+        ;;
+      --display-diagonal)
+        [[ $# -ge 2 ]] || die "--display-diagonal requires a value"
+        set_display_diagonal_override "$2"
+        shift 2
+        ;;
+      --config)
+        [[ $# -ge 2 ]] || die "--config requires a value"
+        CONFIG_FILE="$2"
         shift 2
         ;;
       --mode)
@@ -388,12 +570,16 @@ apply_full_fonts() {
 ###############################################################################
 
 main() {
+  preparse_config_arg "$@"
+  load_config_file "$CONFIG_FILE"
+  load_display_diagonal_overrides_from_env
   parse_args "$@"
 
   have gsettings || die "gsettings not found."
 
   local info
   info="$(get_display_info)" || die "Could not determine display information."
+  info="$(normalize_display_info "$info")"
   [[ -n "$info" ]] || die "No connected displays with usable size information were found."
 
   log "Detected displays:"
