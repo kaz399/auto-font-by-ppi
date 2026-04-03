@@ -103,9 +103,9 @@ MAX_REASONABLE_PPI=400
 
 ```text
 110  -> scaling 1.00, UI 11, document 11, monospace 10, titlebar 11
-140  -> scaling 1.10, UI 12, document 12, monospace 11, titlebar 12
-180  -> scaling 1.25, UI 13, document 13, monospace 12, titlebar 13
-240  -> scaling 1.40, UI 14, document 14, monospace 13, titlebar 14
+140  -> scaling 1.00, UI 12, document 12, monospace 11, titlebar 12
+180  -> scaling 1.00, UI 13, document 13, monospace 12, titlebar 13
+240  -> scaling 1.00, UI 14, document 14, monospace 13, titlebar 14
 9999 -> scaling 1.60, UI 16, document 16, monospace 14, titlebar 16
 ```
 
