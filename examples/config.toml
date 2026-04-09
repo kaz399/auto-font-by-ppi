@@ -1,0 +1,74 @@
+dry_run = true
+preferred_display = ""
+display_backend_priority = ["gnome-wayland", "xrandr"]
+target_names = ["gnome", "kitty"]
+
+[display]
+min_reasonable_ppi = 50
+max_reasonable_ppi = 400
+
+[display.diagonal_overrides]
+"HDMI-1" = 31.5
+"eDP-1" = 14.0
+
+[fonts]
+ui_family = "Cantarell"
+document_family = "Cantarell"
+monospace_family = "Monospace"
+titlebar_family = "Cantarell Bold"
+
+[[profiles]]
+name = "ppi-110"
+max_ppi = 110
+text_scaling = 1.00
+ui_font_size = 11
+document_font_size = 11
+monospace_font_size = 10
+titlebar_font_size = 11
+
+[[profiles]]
+name = "ppi-140"
+max_ppi = 140
+text_scaling = 1.00
+ui_font_size = 12
+document_font_size = 12
+monospace_font_size = 11
+titlebar_font_size = 12
+
+[[profiles]]
+name = "ppi-180"
+max_ppi = 180
+text_scaling = 1.00
+ui_font_size = 13
+document_font_size = 13
+monospace_font_size = 12
+titlebar_font_size = 13
+
+[[profiles]]
+name = "ppi-240"
+max_ppi = 240
+text_scaling = 1.00
+ui_font_size = 14
+document_font_size = 14
+monospace_font_size = 13
+titlebar_font_size = 14
+
+[[profiles]]
+name = "ppi-9999"
+max_ppi = 9999
+text_scaling = 1.60
+ui_font_size = 16
+document_font_size = 16
+monospace_font_size = 14
+titlebar_font_size = 16
+
+[target.gnome]
+enabled = true
+mode = "full_fonts"
+
+[target.kitty]
+enabled = false
+strategy = "remote"
+socket = ""
+all = true
+font_size_field = "monospace_font_size"
