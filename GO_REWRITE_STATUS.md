@@ -70,8 +70,10 @@ examples/config.toml
 ### Configuration
 
 - Added a new `examples/config.toml`.
-- Added a minimal TOML parser implemented with the Go standard library.
+- Added TOML parsing based on `github.com/BurntSushi/toml`.
 - Added default configuration values in Go.
+- Kept default-merging behavior so partial config files can override only the needed values.
+- Reject unsupported config keys during decode.
 - Added support for:
   - `dry_run`
   - `preferred_display`
@@ -123,6 +125,8 @@ examples/config.toml
 
 - Parse the example config file.
 - Verify that config values override defaults correctly.
+- Verify unknown root keys are rejected.
+- Verify unknown nested keys are rejected.
 
 ### Display tests
 
@@ -165,7 +169,6 @@ In the sandboxed environment used during development, the command was executed w
 
 ## Current Limitations
 
-- The custom TOML parser is intentionally minimal and only supports the subset currently used by this project.
 - Wayland support currently targets GNOME Mutter only.
 - Non-GNOME Wayland compositors such as Sway and Hyprland are not implemented yet.
 - Kitty support currently changes the font size of running kitty instances through remote control only.
@@ -179,7 +182,6 @@ In the sandboxed environment used during development, the command was executed w
 
 - Reach feature parity with the current Bash script where appropriate.
 - Decide whether the Go CLI should replace the existing script name or ship in parallel for a while.
-- Replace the minimal TOML parser with a proper TOML library if long-term config growth is expected.
 - Add documentation for the Go CLI usage and migration path.
 
 ### Display/backend work
@@ -215,7 +217,7 @@ In the sandboxed environment used during development, the command was executed w
 ## Recommended Next Steps
 
 1. Add a proper generic command target adapter for arbitrary programs.
-2. Decide whether to keep the custom TOML parser or adopt a TOML library now.
-3. Add `testdata/` fixtures for `xrandr` and GNOME Wayland parsing.
-4. Expand the CLI and documentation so the Go tool can be evaluated by users directly.
+2. Add `testdata/` fixtures for `xrandr` and GNOME Wayland parsing.
+3. Expand the CLI and documentation so the Go tool can be evaluated by users directly.
+4. Decide whether additional config validation rules are needed beyond decode-time unknown-key rejection.
 5. Only retire the Bash script after the Go implementation is functionally complete enough for daily use.

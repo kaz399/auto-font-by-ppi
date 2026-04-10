@@ -70,8 +70,10 @@ examples/config.toml
 ### 設定まわり
 
 - `examples/config.toml` を追加
-- Go 標準ライブラリのみを使った最小 TOML パーサを追加
+- `github.com/BurntSushi/toml` を使った TOML パースを追加
 - Go 側にデフォルト設定値を追加
+- 部分的な config でも必要な値だけ上書きできるよう、デフォルト値とのマージを維持
+- decode 時に未対応の config key を拒否
 - 以下の設定をサポート
   - `dry_run`
   - `preferred_display`
@@ -123,6 +125,8 @@ examples/config.toml
 
 - サンプル config のパース確認
 - config 値がデフォルト値を正しく上書きすることの確認
+- 未知の root key を拒否することの確認
+- 未知のネストした key を拒否することの確認
 
 ### Display テスト
 
@@ -165,7 +169,6 @@ go test ./...
 
 ## 現在の制約
 
-- カスタム TOML パーサは、現時点で使っている設定形式に必要な最小実装です
 - Wayland 対応は現在 GNOME Mutter 専用です
 - Sway や Hyprland など、非 GNOME の Wayland compositor には未対応です
 - kitty 対応は、実行中の kitty を remote control で変更する方式のみです
@@ -179,7 +182,6 @@ go test ./...
 
 - 既存 Bash スクリプトと必要な範囲で機能互換を取る
 - Go CLI を既存スクリプト名へ置き換えるか、並行運用するかを決める
-- 設定が今後増える前提なら、最小 TOML パーサを正式な TOML ライブラリへ置き換える
 - Go CLI の利用方法と移行手順を文書化する
 
 ### Display/backend 関連
@@ -215,7 +217,7 @@ go test ./...
 ## 推奨する次の作業
 
 1. 任意プログラム向けの generic command target adapter を追加する
-2. カスタム TOML パーサを維持するか、今の段階で TOML ライブラリへ移行するか決める
-3. `testdata/` に `xrandr` と GNOME Wayland の fixture を追加する
-4. Go ツール単体で利用評価できる程度まで CLI とドキュメントを拡充する
+2. `testdata/` に `xrandr` と GNOME Wayland の fixture を追加する
+3. Go ツール単体で利用評価できる程度まで CLI とドキュメントを拡充する
+4. decode 時の未知 key 拒否に加えて、追加の config validation が必要か検討する
 5. 日常利用に耐える機能が揃ってから Bash スクリプトの引退を判断する
