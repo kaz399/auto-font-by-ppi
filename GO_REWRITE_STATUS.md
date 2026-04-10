@@ -66,6 +66,7 @@ examples/config.toml
 - Added `go.mod`.
 - Added a minimal entry point in `cmd/auto-font-by-ppi/main.go`.
 - Added internal packages for app flow, config, display backends, profile logic, execution, and target adapters.
+- Added CLI support for `--display-diagonal NAME=INCHES`, including repeated overrides.
 
 ### Configuration
 
@@ -139,6 +140,12 @@ examples/config.toml
 - Apply diagonal overrides to suspicious display metrics.
 - Select preferred and primary displays correctly.
 - Select the expected profile for a given PPI.
+
+### CLI tests
+
+- Parse repeated `--display-diagonal NAME=INCHES` overrides.
+- Reject invalid `--display-diagonal` values.
+- Verify CLI diagonal overrides merge into config values correctly.
 
 ### Target tests
 

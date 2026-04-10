@@ -66,6 +66,7 @@ examples/config.toml
 - `go.mod` を追加
 - `cmd/auto-font-by-ppi/main.go` に最小のエントリポイントを追加
 - app、config、display backend、profile、execution、target adapter の internal package を追加
+- `--display-diagonal NAME=INCHES` を複数回受け取れる CLI 対応を追加
 
 ### 設定まわり
 
@@ -139,6 +140,12 @@ examples/config.toml
 - 異常な物理値に対する diagonal override 適用確認
 - preferred display と primary display の選択確認
 - 指定 PPI に対する profile 選択確認
+
+### CLI テスト
+
+- `--display-diagonal NAME=INCHES` を複数回パースできることの確認
+- 不正な `--display-diagonal` 値を拒否することの確認
+- CLI の対角インチ override が config 値へ正しくマージされることの確認
 
 ### Target テスト
 

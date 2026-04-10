@@ -29,6 +29,26 @@ Automatically adjust GNOME font settings based on the target display PPI.
 ./gnome-auto-font-by-ppi.sh --apply --mode scaling_only
 ```
 
+## Go CLI Status
+
+The Go rewrite currently provides an experimental `auto-font-by-ppi` CLI alongside the Bash script.
+
+Example usage:
+
+```bash
+go run ./cmd/auto-font-by-ppi --dry-run
+go run ./cmd/auto-font-by-ppi --apply --display eDP-1
+go run ./cmd/auto-font-by-ppi --dry-run --display-diagonal HDMI-1=31.5
+```
+
+The Go CLI reads TOML config from:
+
+```text
+~/.config/auto-font-by-ppi/config.toml
+```
+
+See [examples/config.toml](./examples/config.toml) for the current config format.
+
 ## Manual Monitor Size Override
 
 Some monitors report invalid physical size values through EDID. A common failure mode is that the reported size in millimeters matches the pixel resolution, which produces obviously wrong PPI values.
@@ -93,6 +113,18 @@ If suspicious metrics are detected and a manual diagonal override exists for tha
 --display-diagonal NAME=INCHES
 --config PATH
 --mode scaling_only|full_fonts
+--verbose
+--help
+```
+
+The current Go CLI supports:
+
+```text
+--dry-run
+--apply
+--display NAME
+--display-diagonal NAME=INCHES
+--config PATH
 --verbose
 --help
 ```

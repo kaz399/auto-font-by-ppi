@@ -29,6 +29,26 @@
 ./gnome-auto-font-by-ppi.sh --apply --mode scaling_only
 ```
 
+## Go CLI の現状
+
+Go リライト版では、Bash スクリプトと並行して実験的な `auto-font-by-ppi` CLI を提供しています。
+
+利用例:
+
+```bash
+go run ./cmd/auto-font-by-ppi --dry-run
+go run ./cmd/auto-font-by-ppi --apply --display eDP-1
+go run ./cmd/auto-font-by-ppi --dry-run --display-diagonal HDMI-1=31.5
+```
+
+Go CLI が読む TOML 設定ファイルの既定パスは次のとおりです。
+
+```text
+~/.config/auto-font-by-ppi/config.toml
+```
+
+現在の設定形式は [examples/config.toml](./examples/config.toml) を参照してください。
+
 ## モニタサイズの手動上書き
 
 モニタによっては、EDID から取得した物理サイズが不正な場合があります。典型的には、ミリメートル値がピクセル解像度と同じになってしまい、明らかに不正な PPI が計算されます。
@@ -93,6 +113,18 @@ MAX_REASONABLE_PPI=400
 --display-diagonal NAME=INCHES
 --config PATH
 --mode scaling_only|full_fonts
+--verbose
+--help
+```
+
+現在の Go CLI でサポートしているオプション:
+
+```text
+--dry-run
+--apply
+--display NAME
+--display-diagonal NAME=INCHES
+--config PATH
 --verbose
 --help
 ```
