@@ -9,7 +9,7 @@
 ## リライトの目標
 
 - 単一の Bash スクリプトから、保守しやすい Go 製 CLI へ移行する
-- ディスプレイ検出、PPI/profile 選択、target 反映を明確に分離する
+- ディスプレイ検出、PPI/profile 選択、target への適用を明確に分離する
 - GNOME 以外の複数 target を扱える構造にする
 - dry-run と apply の挙動を明示的かつテスト可能にする
 - backend や target adapter を追加しやすい形にする
@@ -77,10 +77,10 @@ examples/config.toml
   - `preferred_display`
   - `display_backend_priority`
   - `target_names`
-  - display sanity threshold
-  - diagonal override
-  - font family
-  - profile
+  - display sanity thresholds
+  - diagonal overrides
+  - font families
+  - profiles
   - `target.gnome`
   - `target.kitty`
 
@@ -185,8 +185,8 @@ go test ./...
 ### Display/backend 関連
 
 - 必要に応じて追加の Wayland compositor 対応を入れる
-  - `swaymsg`
-  - `hyprctl`
+  - Sway 向けの `swaymsg`
+  - Hyprland 向けの `hyprctl`
 - `testdata/` に backend ごとの fixture を追加する
 - Mutter 出力形式の変化に備えて、display metadata のパースをさらに堅牢化する
 
@@ -203,7 +203,7 @@ go test ./...
 
 - 現在の最小実装から CLI フラグを拡張する
 - backend のフォールバック判断を verbose でより詳しく出せるようにする
-- runner 全体の integration に近いテストを追加する
+- runner 全体を通す integration に近いテストを追加する
 
 ### ドキュメント・配布
 
