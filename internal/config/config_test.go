@@ -25,6 +25,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -140,5 +141,37 @@ font_size_field = "ui_font_size"
 	}
 	if got := cfg.Targets.Kitty.All; got {
 		t.Fatalf("unexpected kitty all flag: got %v want false", got)
+	}
+}
+
+func TestParseRejectsUnknownRootKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	err := parse("unknown_key = true\n", &cfg)
+	if err == nil {
+		t.Fatal("expected parse to fail for an unknown root key")
+	}
+	if !strings.Contains(err.Error(), `unsupported config key "unknown_key"`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseRejectsUnknownNestedKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	input := `
+[target.kitty]
+enabled = true
+unknown_key = "value"
+`
+
+	err := parse(input, &cfg)
+	if err == nil {
+		t.Fatal("expected parse to fail for an unknown nested key")
+	}
+	if !strings.Contains(err.Error(), `unsupported config key "target.kitty.unknown_key"`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

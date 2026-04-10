@@ -23,14 +23,12 @@ SOFTWARE.
 package config
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/kazuhiro-yabe/auto-font-by-ppi/internal/model"
 )
 
@@ -125,395 +123,177 @@ func validate(cfg model.Config) error {
 }
 
 func parse(input string, cfg *model.Config) error {
-	scanner := bufio.NewScanner(strings.NewReader(input))
-	section := ""
-	var currentProfile *model.Profile
-	seenProfiles := false
+	var decoded fileConfig
 
-	for lineNumber := 1; scanner.Scan(); lineNumber++ {
-		line := strings.TrimSpace(stripComment(scanner.Text()))
-		if line == "" {
-			continue
-		}
-
-		if strings.HasPrefix(line, "[[") && strings.HasSuffix(line, "]]") {
-			arraySection := strings.TrimSpace(line[2 : len(line)-2])
-			if arraySection != "profiles" {
-				return fmt.Errorf("line %d: unsupported array section %q", lineNumber, arraySection)
-			}
-
-			if !seenProfiles {
-				cfg.Profiles = nil
-				seenProfiles = true
-			}
-
-			cfg.Profiles = append(cfg.Profiles, model.Profile{})
-			currentProfile = &cfg.Profiles[len(cfg.Profiles)-1]
-			section = "profiles"
-			continue
-		}
-
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			section = strings.TrimSpace(line[1 : len(line)-1])
-			currentProfile = nil
-			continue
-		}
-
-		key, value, err := splitAssignment(line)
-		if err != nil {
-			return fmt.Errorf("line %d: %w", lineNumber, err)
-		}
-
-		if err := assign(section, key, value, cfg, currentProfile); err != nil {
-			return fmt.Errorf("line %d: %w", lineNumber, err)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
+	meta, err := toml.Decode(input, &decoded)
+	if err != nil {
 		return err
 	}
 
+	if err := rejectUndecoded(meta); err != nil {
+		return err
+	}
+
+	mergeConfig(cfg, decoded)
 	return nil
 }
 
-func assign(section, key, value string, cfg *model.Config, currentProfile *model.Profile) error {
-	switch section {
-	case "":
-		return assignRoot(key, value, cfg)
-	case "display":
-		return assignDisplay(key, value, cfg)
-	case "display.diagonal_overrides":
-		number, err := parseFloat(value)
-		if err != nil {
-			return err
-		}
-		cfg.Display.DiagonalOverrides[trimQuoted(key)] = number
+type fileConfig struct {
+	DryRun                 *bool               `toml:"dry_run"`
+	PreferredDisplay       *string             `toml:"preferred_display"`
+	DisplayBackendPriority *[]string           `toml:"display_backend_priority"`
+	TargetNames            *[]string           `toml:"target_names"`
+	Display                *displayFileConfig  `toml:"display"`
+	Fonts                  *fontsFileConfig    `toml:"fonts"`
+	Profiles               []profileFileConfig `toml:"profiles"`
+	Target                 *targetFileConfig   `toml:"target"`
+}
+
+type displayFileConfig struct {
+	MinReasonablePPI  *float64           `toml:"min_reasonable_ppi"`
+	MaxReasonablePPI  *float64           `toml:"max_reasonable_ppi"`
+	DiagonalOverrides map[string]float64 `toml:"diagonal_overrides"`
+}
+
+type fontsFileConfig struct {
+	UI        *string `toml:"ui_family"`
+	Document  *string `toml:"document_family"`
+	Monospace *string `toml:"monospace_family"`
+	Titlebar  *string `toml:"titlebar_family"`
+}
+
+type profileFileConfig struct {
+	Name              string  `toml:"name"`
+	MaxPPI            float64 `toml:"max_ppi"`
+	TextScaling       float64 `toml:"text_scaling"`
+	UIFontSize        int     `toml:"ui_font_size"`
+	DocumentFontSize  int     `toml:"document_font_size"`
+	MonospaceFontSize int     `toml:"monospace_font_size"`
+	TitlebarFontSize  int     `toml:"titlebar_font_size"`
+}
+
+type targetFileConfig struct {
+	GNOME *gnomeTargetFileConfig `toml:"gnome"`
+	Kitty *kittyTargetFileConfig `toml:"kitty"`
+}
+
+type gnomeTargetFileConfig struct {
+	Enabled *bool   `toml:"enabled"`
+	Mode    *string `toml:"mode"`
+}
+
+type kittyTargetFileConfig struct {
+	Enabled       *bool   `toml:"enabled"`
+	Strategy      *string `toml:"strategy"`
+	Socket        *string `toml:"socket"`
+	All           *bool   `toml:"all"`
+	FontSizeField *string `toml:"font_size_field"`
+}
+
+func rejectUndecoded(meta toml.MetaData) error {
+	undecoded := meta.Undecoded()
+	if len(undecoded) == 0 {
 		return nil
-	case "fonts":
-		return assignFonts(key, value, cfg)
-	case "profiles":
-		if currentProfile == nil {
-			return fmt.Errorf("profile value specified before [[profiles]]")
+	}
+
+	return fmt.Errorf("unsupported config key %q", undecoded[0].String())
+}
+
+func mergeConfig(cfg *model.Config, decoded fileConfig) {
+	if decoded.DryRun != nil {
+		cfg.DryRun = *decoded.DryRun
+	}
+	if decoded.PreferredDisplay != nil {
+		cfg.PreferredDisplay = *decoded.PreferredDisplay
+	}
+	if decoded.DisplayBackendPriority != nil {
+		cfg.DisplayBackendPriority = append([]string(nil), (*decoded.DisplayBackendPriority)...)
+	}
+	if decoded.TargetNames != nil {
+		cfg.TargetNames = append([]string(nil), (*decoded.TargetNames)...)
+	}
+
+	if decoded.Display != nil {
+		mergeDisplayConfig(&cfg.Display, *decoded.Display)
+	}
+	if decoded.Fonts != nil {
+		mergeFontsConfig(&cfg.Fonts, *decoded.Fonts)
+	}
+	if decoded.Profiles != nil {
+		cfg.Profiles = make([]model.Profile, 0, len(decoded.Profiles))
+		for _, profile := range decoded.Profiles {
+			cfg.Profiles = append(cfg.Profiles, model.Profile{
+				Name:              profile.Name,
+				MaxPPI:            profile.MaxPPI,
+				TextScaling:       profile.TextScaling,
+				UIFontSize:        profile.UIFontSize,
+				DocumentFontSize:  profile.DocumentFontSize,
+				MonospaceFontSize: profile.MonospaceFontSize,
+				TitlebarFontSize:  profile.TitlebarFontSize,
+			})
 		}
-		return assignProfile(key, value, currentProfile)
-	case "target.gnome":
-		return assignGNOME(key, value, cfg)
-	case "target.kitty":
-		return assignKitty(key, value, cfg)
-	default:
-		return fmt.Errorf("unsupported section %q", section)
+	}
+
+	if decoded.Target != nil {
+		mergeTargetConfig(&cfg.Targets, *decoded.Target)
 	}
 }
 
-func assignRoot(key, value string, cfg *model.Config) error {
-	switch key {
-	case "dry_run":
-		parsed, err := parseBool(value)
-		if err != nil {
-			return err
-		}
-		cfg.DryRun = parsed
-	case "preferred_display":
-		parsed, err := parseString(value)
-		if err != nil {
-			return err
-		}
-		cfg.PreferredDisplay = parsed
-	case "display_backend_priority":
-		parsed, err := parseStringArray(value)
-		if err != nil {
-			return err
-		}
-		cfg.DisplayBackendPriority = parsed
-	case "target_names":
-		parsed, err := parseStringArray(value)
-		if err != nil {
-			return err
-		}
-		cfg.TargetNames = parsed
-	default:
-		return fmt.Errorf("unsupported root key %q", key)
+func mergeDisplayConfig(cfg *model.DisplayConfig, decoded displayFileConfig) {
+	if decoded.MinReasonablePPI != nil {
+		cfg.MinReasonablePPI = *decoded.MinReasonablePPI
 	}
-	return nil
+	if decoded.MaxReasonablePPI != nil {
+		cfg.MaxReasonablePPI = *decoded.MaxReasonablePPI
+	}
+	if decoded.DiagonalOverrides != nil {
+		cfg.DiagonalOverrides = make(map[string]float64, len(decoded.DiagonalOverrides))
+		for name, diagonal := range decoded.DiagonalOverrides {
+			cfg.DiagonalOverrides[name] = diagonal
+		}
+	}
 }
 
-func assignDisplay(key, value string, cfg *model.Config) error {
-	switch key {
-	case "min_reasonable_ppi":
-		parsed, err := parseFloat(value)
-		if err != nil {
-			return err
-		}
-		cfg.Display.MinReasonablePPI = parsed
-	case "max_reasonable_ppi":
-		parsed, err := parseFloat(value)
-		if err != nil {
-			return err
-		}
-		cfg.Display.MaxReasonablePPI = parsed
-	default:
-		return fmt.Errorf("unsupported display key %q", key)
+func mergeFontsConfig(cfg *model.FontFamilies, decoded fontsFileConfig) {
+	if decoded.UI != nil {
+		cfg.UI = *decoded.UI
 	}
-	return nil
+	if decoded.Document != nil {
+		cfg.Document = *decoded.Document
+	}
+	if decoded.Monospace != nil {
+		cfg.Monospace = *decoded.Monospace
+	}
+	if decoded.Titlebar != nil {
+		cfg.Titlebar = *decoded.Titlebar
+	}
 }
 
-func assignFonts(key, value string, cfg *model.Config) error {
-	parsed, err := parseString(value)
-	if err != nil {
-		return err
-	}
-
-	switch key {
-	case "ui_family":
-		cfg.Fonts.UI = parsed
-	case "document_family":
-		cfg.Fonts.Document = parsed
-	case "monospace_family":
-		cfg.Fonts.Monospace = parsed
-	case "titlebar_family":
-		cfg.Fonts.Titlebar = parsed
-	default:
-		return fmt.Errorf("unsupported fonts key %q", key)
-	}
-	return nil
-}
-
-func assignProfile(key, value string, profile *model.Profile) error {
-	switch key {
-	case "name":
-		parsed, err := parseString(value)
-		if err != nil {
-			return err
+func mergeTargetConfig(cfg *model.TargetConfigs, decoded targetFileConfig) {
+	if decoded.GNOME != nil {
+		if decoded.GNOME.Enabled != nil {
+			cfg.GNOME.Enabled = *decoded.GNOME.Enabled
 		}
-		profile.Name = parsed
-	case "max_ppi":
-		parsed, err := parseFloat(value)
-		if err != nil {
-			return err
-		}
-		profile.MaxPPI = parsed
-	case "text_scaling":
-		parsed, err := parseFloat(value)
-		if err != nil {
-			return err
-		}
-		profile.TextScaling = parsed
-	case "ui_font_size":
-		parsed, err := parseInt(value)
-		if err != nil {
-			return err
-		}
-		profile.UIFontSize = parsed
-	case "document_font_size":
-		parsed, err := parseInt(value)
-		if err != nil {
-			return err
-		}
-		profile.DocumentFontSize = parsed
-	case "monospace_font_size":
-		parsed, err := parseInt(value)
-		if err != nil {
-			return err
-		}
-		profile.MonospaceFontSize = parsed
-	case "titlebar_font_size":
-		parsed, err := parseInt(value)
-		if err != nil {
-			return err
-		}
-		profile.TitlebarFontSize = parsed
-	default:
-		return fmt.Errorf("unsupported profile key %q", key)
-	}
-	return nil
-}
-
-func assignGNOME(key, value string, cfg *model.Config) error {
-	switch key {
-	case "enabled":
-		parsed, err := parseBool(value)
-		if err != nil {
-			return err
-		}
-		cfg.Targets.GNOME.Enabled = parsed
-	case "mode":
-		parsed, err := parseString(value)
-		if err != nil {
-			return err
-		}
-		cfg.Targets.GNOME.Mode = parsed
-	default:
-		return fmt.Errorf("unsupported target.gnome key %q", key)
-	}
-	return nil
-}
-
-func assignKitty(key, value string, cfg *model.Config) error {
-	switch key {
-	case "enabled":
-		parsed, err := parseBool(value)
-		if err != nil {
-			return err
-		}
-		cfg.Targets.Kitty.Enabled = parsed
-	case "strategy":
-		parsed, err := parseString(value)
-		if err != nil {
-			return err
-		}
-		cfg.Targets.Kitty.Strategy = parsed
-	case "socket":
-		parsed, err := parseString(value)
-		if err != nil {
-			return err
-		}
-		cfg.Targets.Kitty.Socket = parsed
-	case "all":
-		parsed, err := parseBool(value)
-		if err != nil {
-			return err
-		}
-		cfg.Targets.Kitty.All = parsed
-	case "font_size_field":
-		parsed, err := parseString(value)
-		if err != nil {
-			return err
-		}
-		cfg.Targets.Kitty.FontSizeField = parsed
-	default:
-		return fmt.Errorf("unsupported target.kitty key %q", key)
-	}
-	return nil
-}
-
-func stripComment(line string) string {
-	var builder strings.Builder
-	inString := false
-	escaped := false
-
-	for _, r := range line {
-		switch {
-		case escaped:
-			builder.WriteRune(r)
-			escaped = false
-		case r == '\\' && inString:
-			builder.WriteRune(r)
-			escaped = true
-		case r == '"':
-			builder.WriteRune(r)
-			inString = !inString
-		case r == '#' && !inString:
-			return builder.String()
-		default:
-			builder.WriteRune(r)
+		if decoded.GNOME.Mode != nil {
+			cfg.GNOME.Mode = *decoded.GNOME.Mode
 		}
 	}
 
-	return builder.String()
-}
-
-func splitAssignment(line string) (string, string, error) {
-	inString := false
-	for index, r := range line {
-		switch r {
-		case '"':
-			inString = !inString
-		case '=':
-			if inString {
-				continue
-			}
-			key := strings.TrimSpace(line[:index])
-			value := strings.TrimSpace(line[index+1:])
-			if key == "" || value == "" {
-				return "", "", fmt.Errorf("invalid assignment")
-			}
-			return trimQuoted(key), value, nil
+	if decoded.Kitty != nil {
+		if decoded.Kitty.Enabled != nil {
+			cfg.Kitty.Enabled = *decoded.Kitty.Enabled
+		}
+		if decoded.Kitty.Strategy != nil {
+			cfg.Kitty.Strategy = *decoded.Kitty.Strategy
+		}
+		if decoded.Kitty.Socket != nil {
+			cfg.Kitty.Socket = *decoded.Kitty.Socket
+		}
+		if decoded.Kitty.All != nil {
+			cfg.Kitty.All = *decoded.Kitty.All
+		}
+		if decoded.Kitty.FontSizeField != nil {
+			cfg.Kitty.FontSizeField = *decoded.Kitty.FontSizeField
 		}
 	}
-
-	return "", "", fmt.Errorf("missing key/value separator")
-}
-
-func parseString(value string) (string, error) {
-	value = strings.TrimSpace(value)
-	if len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
-		return "", fmt.Errorf("expected string literal, got %q", value)
-	}
-
-	parsed, err := strconv.Unquote(value)
-	if err != nil {
-		return "", err
-	}
-	return parsed, nil
-}
-
-func parseBool(value string) (bool, error) {
-	return strconv.ParseBool(strings.TrimSpace(value))
-}
-
-func parseInt(value string) (int, error) {
-	return strconv.Atoi(strings.TrimSpace(value))
-}
-
-func parseFloat(value string) (float64, error) {
-	return strconv.ParseFloat(strings.TrimSpace(value), 64)
-}
-
-func parseStringArray(value string) ([]string, error) {
-	value = strings.TrimSpace(value)
-	if len(value) < 2 || value[0] != '[' || value[len(value)-1] != ']' {
-		return nil, fmt.Errorf("expected string array, got %q", value)
-	}
-
-	content := strings.TrimSpace(value[1 : len(value)-1])
-	if content == "" {
-		return []string{}, nil
-	}
-
-	items := splitArrayItems(content)
-	values := make([]string, 0, len(items))
-	for _, item := range items {
-		parsed, err := parseString(strings.TrimSpace(item))
-		if err != nil {
-			return nil, err
-		}
-		values = append(values, parsed)
-	}
-	return values, nil
-}
-
-func splitArrayItems(content string) []string {
-	var items []string
-	var builder strings.Builder
-	inString := false
-	escaped := false
-
-	for _, r := range content {
-		switch {
-		case escaped:
-			builder.WriteRune(r)
-			escaped = false
-		case r == '\\' && inString:
-			builder.WriteRune(r)
-			escaped = true
-		case r == '"':
-			builder.WriteRune(r)
-			inString = !inString
-		case r == ',' && !inString:
-			items = append(items, builder.String())
-			builder.Reset()
-		default:
-			builder.WriteRune(r)
-		}
-	}
-
-	items = append(items, builder.String())
-	return items
-}
-
-func trimQuoted(value string) string {
-	value = strings.TrimSpace(value)
-	value = strings.TrimPrefix(value, `"`)
-	value = strings.TrimSuffix(value, `"`)
-	return value
 }
