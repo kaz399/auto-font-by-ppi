@@ -69,6 +69,72 @@ func TestNormalizeDisplaysAppliesDiagonalOverride(t *testing.T) {
 	}
 }
 
+func TestNormalizeDisplaysAppliesDiagonalOverrideToDisplayWithoutPhysicalSize(t *testing.T) {
+	t.Parallel()
+
+	cfg := model.DisplayConfig{
+		MinReasonablePPI: 50,
+		MaxReasonablePPI: 400,
+		DiagonalOverrides: map[string]float64{
+			"HDMI-1": 31.5,
+		},
+	}
+
+	displays := []model.DisplayInfo{
+		{
+			Name:      "HDMI-1",
+			IsPrimary: true,
+			WidthPx:   3840,
+			HeightPx:  2160,
+			WidthMM:   0,
+			HeightMM:  0,
+			PPI:       0,
+		},
+	}
+
+	normalized, err := NormalizeDisplays(cfg, displays)
+	if err != nil {
+		t.Fatalf("NormalizeDisplays returned error: %v", err)
+	}
+
+	if got := len(normalized); got != 1 {
+		t.Fatalf("unexpected normalized display count: got %d want 1", got)
+	}
+	if normalized[0].WidthMM <= 0 || normalized[0].HeightMM <= 0 || normalized[0].PPI <= 0 {
+		t.Fatalf("expected manual override to restore usable physical size: %+v", normalized[0])
+	}
+}
+
+func TestNormalizeDisplaysSkipsDisplayWithoutUsablePhysicalSize(t *testing.T) {
+	t.Parallel()
+
+	cfg := model.DisplayConfig{
+		MinReasonablePPI: 50,
+		MaxReasonablePPI: 400,
+	}
+
+	displays := []model.DisplayInfo{
+		{
+			Name:      "HDMI-1",
+			IsPrimary: true,
+			WidthPx:   3840,
+			HeightPx:  2160,
+			WidthMM:   0,
+			HeightMM:  0,
+			PPI:       0,
+		},
+	}
+
+	normalized, err := NormalizeDisplays(cfg, displays)
+	if err != nil {
+		t.Fatalf("NormalizeDisplays returned error: %v", err)
+	}
+
+	if got := len(normalized); got != 0 {
+		t.Fatalf("expected display without usable physical size to be skipped, got %d entries", got)
+	}
+}
+
 func TestSelectDisplay(t *testing.T) {
 	t.Parallel()
 

@@ -53,8 +53,20 @@ func (b XRandrBackend) Detect(ctx context.Context) ([]model.DisplayInfo, error) 
 		return nil, err
 	}
 
+	displays, err := parseXRandrQuery(string(output))
+	if err != nil {
+		return nil, err
+	}
+	if len(displays) == 0 {
+		return nil, fmt.Errorf("xrandr did not report a connected display with an active mode")
+	}
+
+	return displays, nil
+}
+
+func parseXRandrQuery(raw string) ([]model.DisplayInfo, error) {
 	var displays []model.DisplayInfo
-	for _, line := range strings.Split(string(output), "\n") {
+	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || !strings.Contains(line, " connected") {
 			continue
@@ -66,8 +78,7 @@ func (b XRandrBackend) Detect(ctx context.Context) ([]model.DisplayInfo, error) 
 		}
 
 		modeMatch := modePattern.FindStringSubmatch(line)
-		sizeMatch := mmPattern.FindStringSubmatch(line)
-		if modeMatch == nil || sizeMatch == nil {
+		if modeMatch == nil {
 			continue
 		}
 
@@ -79,18 +90,28 @@ func (b XRandrBackend) Detect(ctx context.Context) ([]model.DisplayInfo, error) 
 		if err != nil {
 			return nil, fmt.Errorf("parse height pixels: %w", err)
 		}
-		widthMM, err := strconv.Atoi(sizeMatch[1])
-		if err != nil {
-			return nil, fmt.Errorf("parse width millimeters: %w", err)
-		}
-		heightMM, err := strconv.Atoi(sizeMatch[2])
-		if err != nil {
-			return nil, fmt.Errorf("parse height millimeters: %w", err)
-		}
 
-		ppi, err := profile.CalculatePPI(widthPx, heightPx, widthMM, heightMM)
-		if err != nil {
-			return nil, err
+		widthMM := 0
+		heightMM := 0
+		ppi := 0.0
+
+		sizeMatch := mmPattern.FindStringSubmatch(line)
+		if sizeMatch != nil {
+			widthMM, err = strconv.Atoi(sizeMatch[1])
+			if err != nil {
+				return nil, fmt.Errorf("parse width millimeters: %w", err)
+			}
+			heightMM, err = strconv.Atoi(sizeMatch[2])
+			if err != nil {
+				return nil, fmt.Errorf("parse height millimeters: %w", err)
+			}
+
+			if widthMM > 0 && heightMM > 0 {
+				ppi, err = profile.CalculatePPI(widthPx, heightPx, widthMM, heightMM)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 
 		displays = append(displays, model.DisplayInfo{
@@ -102,10 +123,6 @@ func (b XRandrBackend) Detect(ctx context.Context) ([]model.DisplayInfo, error) 
 			HeightMM:  heightMM,
 			PPI:       ppi,
 		})
-	}
-
-	if len(displays) == 0 {
-		return nil, fmt.Errorf("xrandr did not report a connected display with usable size information")
 	}
 
 	return displays, nil

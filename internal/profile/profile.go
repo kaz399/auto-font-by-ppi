@@ -90,6 +90,9 @@ func NormalizeDisplays(cfg model.DisplayConfig, displays []model.DisplayInfo) ([
 				current = adjusted
 			}
 		}
+		if current.WidthMM <= 0 || current.HeightMM <= 0 || current.PPI <= 0 {
+			continue
+		}
 		normalized = append(normalized, current)
 	}
 	return normalized, nil
