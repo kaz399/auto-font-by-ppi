@@ -27,6 +27,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/kazuhiro-yabe/auto-font-by-ppi/internal/model"
@@ -94,9 +96,16 @@ func Load(path string) (model.Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return cfg, nil
+			if err := ensureConfigFile(path); err != nil {
+				return model.Config{}, err
+			}
+			data, err = os.ReadFile(path)
+			if err != nil {
+				return model.Config{}, fmt.Errorf("read config %q: %w", path, err)
+			}
+		} else {
+			return model.Config{}, fmt.Errorf("read config %q: %w", path, err)
 		}
-		return model.Config{}, fmt.Errorf("read config %q: %w", path, err)
 	}
 
 	if err := parse(string(data), &cfg); err != nil {
@@ -104,6 +113,92 @@ func Load(path string) (model.Config, error) {
 	}
 
 	return cfg, validate(cfg)
+}
+
+func ensureConfigFile(path string) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create config directory %q: %w", dir, err)
+	}
+
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil
+		}
+		return fmt.Errorf("create config %q: %w", path, err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(sampleConfigText()); err != nil {
+		return fmt.Errorf("write config %q: %w", path, err)
+	}
+
+	return nil
+}
+
+func sampleConfigText() string {
+	cfg := DefaultConfig()
+
+	var builder strings.Builder
+	builder.WriteString("# Generated default configuration for auto-font-by-ppi.\n")
+	builder.WriteString("# Edit this file as needed.\n\n")
+
+	fmt.Fprintf(&builder, "dry_run = %t\n", cfg.DryRun)
+	fmt.Fprintf(&builder, "preferred_display = %q\n", cfg.PreferredDisplay)
+	fmt.Fprintf(&builder, "display_backend_priority = %s\n", formatStringArray(cfg.DisplayBackendPriority))
+	fmt.Fprintf(&builder, "target_names = %s\n\n", formatStringArray(cfg.TargetNames))
+
+	builder.WriteString("[display]\n")
+	fmt.Fprintf(&builder, "min_reasonable_ppi = %s\n", formatFloat(cfg.Display.MinReasonablePPI))
+	fmt.Fprintf(&builder, "max_reasonable_ppi = %s\n\n", formatFloat(cfg.Display.MaxReasonablePPI))
+
+	builder.WriteString("# Example diagonal overrides:\n")
+	builder.WriteString("# [display.diagonal_overrides]\n")
+	builder.WriteString("# \"HDMI-1\" = 31.5\n")
+	builder.WriteString("# \"eDP-1\" = 14.0\n\n")
+
+	builder.WriteString("[fonts]\n")
+	fmt.Fprintf(&builder, "ui_family = %q\n", cfg.Fonts.UI)
+	fmt.Fprintf(&builder, "document_family = %q\n", cfg.Fonts.Document)
+	fmt.Fprintf(&builder, "monospace_family = %q\n", cfg.Fonts.Monospace)
+	fmt.Fprintf(&builder, "titlebar_family = %q\n\n", cfg.Fonts.Titlebar)
+
+	for _, profile := range cfg.Profiles {
+		builder.WriteString("[[profiles]]\n")
+		fmt.Fprintf(&builder, "name = %q\n", profile.Name)
+		fmt.Fprintf(&builder, "max_ppi = %s\n", formatFloat(profile.MaxPPI))
+		fmt.Fprintf(&builder, "text_scaling = %.2f\n", profile.TextScaling)
+		fmt.Fprintf(&builder, "ui_font_size = %d\n", profile.UIFontSize)
+		fmt.Fprintf(&builder, "document_font_size = %d\n", profile.DocumentFontSize)
+		fmt.Fprintf(&builder, "monospace_font_size = %d\n", profile.MonospaceFontSize)
+		fmt.Fprintf(&builder, "titlebar_font_size = %d\n\n", profile.TitlebarFontSize)
+	}
+
+	builder.WriteString("[target.gnome]\n")
+	fmt.Fprintf(&builder, "enabled = %t\n", cfg.Targets.GNOME.Enabled)
+	fmt.Fprintf(&builder, "mode = %q\n\n", cfg.Targets.GNOME.Mode)
+
+	builder.WriteString("[target.kitty]\n")
+	fmt.Fprintf(&builder, "enabled = %t\n", cfg.Targets.Kitty.Enabled)
+	fmt.Fprintf(&builder, "strategy = %q\n", cfg.Targets.Kitty.Strategy)
+	fmt.Fprintf(&builder, "socket = %q\n", cfg.Targets.Kitty.Socket)
+	fmt.Fprintf(&builder, "all = %t\n", cfg.Targets.Kitty.All)
+	fmt.Fprintf(&builder, "font_size_field = %q\n", cfg.Targets.Kitty.FontSizeField)
+
+	return builder.String()
+}
+
+func formatStringArray(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, strconv.Quote(value))
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
+}
+
+func formatFloat(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 func validate(cfg model.Config) error {

@@ -25,6 +25,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -173,5 +174,37 @@ unknown_key = "value"
 	}
 	if !strings.Contains(err.Error(), `unsupported config key "target.kitty.unknown_key"`) {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLoadCreatesSampleConfigWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "auto-font-by-ppi", "config.toml")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	want := DefaultConfig()
+	if !reflect.DeepEqual(cfg, want) {
+		t.Fatalf("unexpected loaded config after sample generation: got %+v want %+v", cfg, want)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated config: %v", err)
+	}
+	if !strings.Contains(string(data), "Generated default configuration for auto-font-by-ppi.") {
+		t.Fatalf("generated config did not contain the expected header")
+	}
+
+	reloaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load on generated config returned error: %v", err)
+	}
+	if !reflect.DeepEqual(reloaded, want) {
+		t.Fatalf("unexpected config after reloading generated sample: got %+v want %+v", reloaded, want)
 	}
 }

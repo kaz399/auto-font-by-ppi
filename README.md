@@ -11,6 +11,7 @@ Automatically adjust GNOME font settings based on the target display PPI.
 - Selects the primary display automatically, or a specific display by name
 - Applies either text scaling only or full GNOME font settings
 - Handles broken EDID physical size values with manual monitor size overrides
+- Keeps X11 displays with missing physical size data so manual diagonal overrides can recover them
 - Supports command-line options, environment variables, and a config file
 
 ## Requirements
@@ -47,6 +48,8 @@ The Go CLI reads TOML config from:
 ~/.config/auto-font-by-ppi/config.toml
 ```
 
+If that file does not exist, the Go CLI creates a default sample config there automatically and then loads it.
+
 See [examples/config.toml](./examples/config.toml) for the current config format.
 
 ## Manual Monitor Size Override
@@ -54,6 +57,8 @@ See [examples/config.toml](./examples/config.toml) for the current config format
 Some monitors report invalid physical size values through EDID. A common failure mode is that the reported size in millimeters matches the pixel resolution, which produces obviously wrong PPI values.
 
 When that happens, provide the diagonal size manually.
+
+On the Go CLI, this also works when `xrandr` reports a connected display with an active mode but no usable millimeter size.
 
 ### Command line
 

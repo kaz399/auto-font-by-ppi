@@ -73,6 +73,7 @@ examples/config.toml
 - `examples/config.toml` を追加
 - `github.com/BurntSushi/toml` を使った TOML パースを追加
 - Go 側にデフォルト設定値を追加
+- 指定した TOML 設定ファイルが存在しない場合、既定値ベースのサンプル設定を自動生成するようにした
 - 部分的な config でも必要な値だけ上書きできるよう、デフォルト値とのマージを維持
 - decode 時に未対応の config key を拒否
 - 以下の設定をサポート
@@ -90,6 +91,7 @@ examples/config.toml
 ### Display backend
 
 - X11/Xorg 向けに `xrandr` backend を実装
+- `xrandr` が使える物理サイズを返さない場合でも、アクティブな mode を持つ X11 ディスプレイは保持し、対角インチ override で復旧できるようにした
 - GNOME Wayland 向けに `gdbus` と Mutter `DisplayConfig` を使う `gnome-wayland` backend を実装
 - デフォルトの backend 優先順を `gnome-wayland` → `xrandr` に設定
 
@@ -126,11 +128,14 @@ examples/config.toml
 
 - サンプル config のパース確認
 - config 値がデフォルト値を正しく上書きすることの確認
+- 対象パスに設定ファイルが無い場合、`Load` がサンプル設定ファイルを自動生成することの確認
 - 未知の root key を拒否することの確認
 - 未知のネストした key を拒否することの確認
 
 ### Display テスト
 
+- X11 の接続済みディスプレイに対する `xrandr` 出力パース確認
+- アクティブな mode を持つが物理サイズが欠損または 0 の X11 ディスプレイを保持することの確認
 - GNOME Wayland の `gdbus` 出力パース確認
 - 重複ディスプレイの除去確認
 - primary display 判定の確認
@@ -138,6 +143,8 @@ examples/config.toml
 ### Profile テスト
 
 - 異常な物理値に対する diagonal override 適用確認
+- 使える物理サイズが無い状態で検出されたディスプレイにも diagonal override を適用できることの確認
+- 正規化後も使える物理サイズを持たないディスプレイを除外することの確認
 - preferred display と primary display の選択確認
 - 指定 PPI に対する profile 選択確認
 

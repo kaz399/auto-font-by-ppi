@@ -73,6 +73,7 @@ examples/config.toml
 - Added a new `examples/config.toml`.
 - Added TOML parsing based on `github.com/BurntSushi/toml`.
 - Added default configuration values in Go.
+- Generate a default sample config file automatically when the configured TOML file does not exist.
 - Kept default-merging behavior so partial config files can override only the needed values.
 - Reject unsupported config keys during decode.
 - Added support for:
@@ -90,6 +91,7 @@ examples/config.toml
 ### Display backends
 
 - Implemented `xrandr` backend for X11/Xorg environments.
+- Kept X11 displays with an active mode even when `xrandr` does not provide usable physical size values, so diagonal overrides can recover them.
 - Implemented `gnome-wayland` backend using `gdbus` and Mutter `DisplayConfig`.
 - Configured backend priority to try `gnome-wayland` before `xrandr` by default.
 
@@ -126,11 +128,14 @@ examples/config.toml
 
 - Parse the example config file.
 - Verify that config values override defaults correctly.
+- Verify `Load` creates a sample config file automatically when the target path does not exist.
 - Verify unknown root keys are rejected.
 - Verify unknown nested keys are rejected.
 
 ### Display tests
 
+- Parse `xrandr` output for connected X11 displays.
+- Keep X11 displays that have an active mode but missing or zero physical size values.
 - Parse GNOME Wayland `gdbus` output.
 - Deduplicate repeated display entries.
 - Detect primary display from the parsed output.
@@ -138,6 +143,8 @@ examples/config.toml
 ### Profile tests
 
 - Apply diagonal overrides to suspicious display metrics.
+- Apply diagonal overrides to displays that were detected without usable physical size values.
+- Skip displays that still do not have usable physical size values after normalization.
 - Select preferred and primary displays correctly.
 - Select the expected profile for a given PPI.
 
