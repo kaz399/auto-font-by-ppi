@@ -167,13 +167,14 @@ func (r Runner) printPlan(plan model.Plan) {
 	fmt.Fprintf(r.Output, "Source backend: %s\n", plan.Resolved.SourceBackend)
 	fmt.Fprintf(
 		r.Output,
-		"Selected display: %s (%dx%d px, %dx%d mm, PPI=%.2f)\n",
+		"Selected display: %s (%dx%d px, %dx%d mm, PPI=%.2f%s)\n",
 		displayInfo.Name,
 		displayInfo.WidthPx,
 		displayInfo.HeightPx,
 		displayInfo.WidthMM,
 		displayInfo.HeightMM,
 		displayInfo.PPI,
+		formatDisplayComputationNote(displayInfo),
 	)
 	fmt.Fprintf(
 		r.Output,
@@ -201,6 +202,17 @@ func (r Runner) printPlan(plan model.Plan) {
 	for _, action := range plan.Actions {
 		fmt.Fprintf(r.Output, "  - [%s] %s\n", action.Target, action.Description)
 		fmt.Fprintf(r.Output, "    %s\n", shellJoin(action.Command))
+	}
+}
+
+func formatDisplayComputationNote(displayInfo model.DisplayInfo) string {
+	switch displayInfo.PhysicalSizeSource {
+	case "override":
+		return fmt.Sprintf(", diagonal override=%.2f in", displayInfo.OverrideDiagonalInches)
+	case "assumed-ppi":
+		return fmt.Sprintf(", assumed PPI=%.2f", displayInfo.AssumedPPI)
+	default:
+		return ""
 	}
 }
 

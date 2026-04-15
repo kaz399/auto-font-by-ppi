@@ -11,7 +11,9 @@ Automatically adjust GNOME font settings based on the target display PPI.
 - Selects the primary display automatically, or a specific display by name
 - Applies either text scaling only or full GNOME font settings
 - Handles broken EDID physical size values with manual monitor size overrides
-- Keeps X11 displays with missing physical size data so manual diagonal overrides can recover them
+- Applies manual diagonal overrides before using detected physical size values on the Go CLI
+- On the Go CLI, supplements missing GNOME Wayland millimeter data from `xrandr` when available
+- On the Go CLI, falls back to an assumed `PPI=100` when no usable physical size data is available
 - Supports command-line options, environment variables, and a config file
 
 ## Requirements
@@ -58,7 +60,7 @@ Some monitors report invalid physical size values through EDID. A common failure
 
 When that happens, provide the diagonal size manually.
 
-On the Go CLI, this also works when `xrandr` reports a connected display with an active mode but no usable millimeter size.
+On the Go CLI, a configured manual diagonal override always takes precedence for the matching display. Without an override, the Go CLI first uses GNOME Wayland detection, then supplements missing millimeter values from `xrandr` when available, and finally falls back to an assumed `PPI=100` if no usable physical size data is available.
 
 ### Command line
 
@@ -107,7 +109,14 @@ The script treats display metrics as suspicious when:
 - Width and height in millimeters exactly match the pixel resolution
 - Calculated PPI is outside the configured reasonable range
 
-If suspicious metrics are detected and a manual diagonal override exists for that display, the script recalculates the physical size and PPI from the diagonal inches.
+The Bash script recalculates the physical size and PPI from the diagonal inches when suspicious metrics are detected and a manual diagonal override exists for that display.
+
+On the Go CLI, the current precedence is:
+
+- Use `display.diagonal_overrides` or `--display-diagonal` when an override exists for the display.
+- Otherwise, use GNOME Wayland detection first when that backend is selected.
+- If GNOME Wayland detection does not provide usable millimeter values, supplement them from `xrandr` when available.
+- If no usable physical size data is available after detection, assume `PPI=100` and derive the physical size from the detected resolution.
 
 ## Options
 

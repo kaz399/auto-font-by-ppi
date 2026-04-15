@@ -76,13 +76,16 @@ type KittyTargetConfig struct {
 }
 
 type DisplayInfo struct {
-	Name      string
-	IsPrimary bool
-	WidthPx   int
-	HeightPx  int
-	WidthMM   int
-	HeightMM  int
-	PPI       float64
+	Name                   string
+	IsPrimary              bool
+	WidthPx                int
+	HeightPx               int
+	WidthMM                int
+	HeightMM               int
+	PPI                    float64
+	PhysicalSizeSource     string
+	OverrideDiagonalInches float64
+	AssumedPPI             float64
 }
 
 type ResolvedSettings struct {

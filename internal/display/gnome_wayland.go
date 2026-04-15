@@ -25,6 +25,7 @@ package display
 import (
 	"context"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -35,11 +36,17 @@ import (
 )
 
 var (
-	gnomeWaylandConnectorPattern   = regexp.MustCompile(`'((?:HDMI|DP|eDP|DVI|VGA|Virtual|DisplayPort)[^']*)'`)
-	gnomeWaylandModePattern        = regexp.MustCompile(`[,(\[]\s*(\d{3,5})\s*,\s*(\d{3,5})\s*,\s*(?:[0-9]+(?:\.[0-9]+)?)`)
-	gnomeWaylandMillimeterPattern  = regexp.MustCompile(`[,(\[]\s*(\d{2,5})\s*,\s*(\d{2,5})\s*[)\]]`)
-	gnomeWaylandPrimaryHintPattern = regexp.MustCompile(`(?i)primary`)
+	gnomeWaylandConnectorPattern      = regexp.MustCompile(`'((?:HDMI|DP|eDP|DVI|VGA|Virtual|DisplayPort)[^']*)'`)
+	gnomeWaylandModePattern           = regexp.MustCompile(`[,(\[]\s*(\d{3,5})\s*,\s*(\d{3,5})\s*,\s*(?:[0-9]+(?:\.[0-9]+)?)`)
+	gnomeWaylandMillimeterPattern     = regexp.MustCompile(`[,(\[]\s*(\d{2,5})\s*,\s*(\d{2,5})\s*(?:,\s*)?[)\]]`)
+	gnomeWaylandPrimaryHintPattern    = regexp.MustCompile(`(?i)primary`)
+	gnomeWaylandLogicalMonitorPattern = regexp.MustCompile(`\(\s*-?\d+\s*,\s*-?\d+\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*uint32\s+\d+\s*,\s*(true|false)\s*,\s*\[\('((?:HDMI|DP|eDP|DVI|VGA|Virtual|DisplayPort)[^']*)'`)
 )
+
+type logicalMonitorInfo struct {
+	scale     float64
+	isPrimary bool
+}
 
 type GNOMEWaylandBackend struct {
 	Runner execx.Runner
@@ -68,29 +75,46 @@ func (b GNOMEWaylandBackend) Detect(ctx context.Context) ([]model.DisplayInfo, e
 		return nil, err
 	}
 	if len(displays) == 0 {
-		return nil, fmt.Errorf("gdbus did not report a connected display with usable size information")
+		return nil, fmt.Errorf("gdbus did not report a connected display")
+	}
+
+	xrandrOutput, err := b.Runner.Run(ctx, "xrandr", "--query")
+	if err == nil {
+		xrandrDisplays, parseErr := parseXRandrQuery(string(xrandrOutput))
+		if parseErr == nil {
+			displays = mergeGNOMEWaylandWithXRandr(displays, xrandrDisplays)
+		}
 	}
 
 	return displays, nil
 }
 
 func parseGNOMEWaylandDisplayConfig(raw string) ([]model.DisplayInfo, error) {
+	logicalMonitors, err := parseGNOMEWaylandLogicalMonitors(raw)
+	if err != nil {
+		return nil, err
+	}
+
 	matches := gnomeWaylandConnectorPattern.FindAllStringSubmatchIndex(raw, -1)
 	displays := make([]model.DisplayInfo, 0, len(matches))
 	seen := make(map[string]struct{}, len(matches))
 
-	for _, match := range matches {
+	for index, match := range matches {
 		name := raw[match[2]:match[3]]
+		logical, hasLogical := logicalMonitors[name]
+		if len(logicalMonitors) > 0 && !hasLogical {
+			continue
+		}
+
 		tailStart := match[1]
-		tailEnd := tailStart + 2500
-		if tailEnd > len(raw) {
-			tailEnd = len(raw)
+		tailEnd := len(raw)
+		if index+1 < len(matches) {
+			tailEnd = matches[index+1][0]
 		}
 		tail := raw[tailStart:tailEnd]
 
 		mode := gnomeWaylandModePattern.FindStringSubmatch(tail)
-		millimeters := gnomeWaylandMillimeterPattern.FindStringSubmatch(tail)
-		if mode == nil || millimeters == nil {
+		if mode == nil {
 			continue
 		}
 
@@ -102,21 +126,30 @@ func parseGNOMEWaylandDisplayConfig(raw string) ([]model.DisplayInfo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse height pixels: %w", err)
 		}
-		widthMM, err := strconv.Atoi(millimeters[1])
-		if err != nil {
-			return nil, fmt.Errorf("parse width millimeters: %w", err)
-		}
-		heightMM, err := strconv.Atoi(millimeters[2])
-		if err != nil {
-			return nil, fmt.Errorf("parse height millimeters: %w", err)
-		}
-		if widthMM <= 0 || heightMM <= 0 {
-			continue
+		if hasLogical && logical.scale > 0 {
+			widthPx = int(math.Round(float64(widthPx) / logical.scale))
+			heightPx = int(math.Round(float64(heightPx) / logical.scale))
 		}
 
-		ppi, err := profile.CalculatePPI(widthPx, heightPx, widthMM, heightMM)
-		if err != nil {
-			return nil, err
+		widthMM := 0
+		heightMM := 0
+		ppi := 0.0
+		millimeters := gnomeWaylandMillimeterPattern.FindStringSubmatch(tail)
+		if millimeters != nil {
+			widthMM, err = strconv.Atoi(millimeters[1])
+			if err != nil {
+				return nil, fmt.Errorf("parse width millimeters: %w", err)
+			}
+			heightMM, err = strconv.Atoi(millimeters[2])
+			if err != nil {
+				return nil, fmt.Errorf("parse height millimeters: %w", err)
+			}
+			if widthMM > 0 && heightMM > 0 {
+				ppi, err = profile.CalculatePPI(widthPx, heightPx, widthMM, heightMM)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 
 		primaryHint := tail
@@ -124,6 +157,9 @@ func parseGNOMEWaylandDisplayConfig(raw string) ([]model.DisplayInfo, error) {
 			primaryHint = primaryHint[:500]
 		}
 		isPrimary := gnomeWaylandPrimaryHintPattern.MatchString(primaryHint)
+		if hasLogical {
+			isPrimary = logical.isPrimary
+		}
 
 		key := strings.Join([]string{
 			name,
@@ -150,4 +186,41 @@ func parseGNOMEWaylandDisplayConfig(raw string) ([]model.DisplayInfo, error) {
 	}
 
 	return displays, nil
+}
+
+func parseGNOMEWaylandLogicalMonitors(raw string) (map[string]logicalMonitorInfo, error) {
+	matches := gnomeWaylandLogicalMonitorPattern.FindAllStringSubmatch(raw, -1)
+	logicalMonitors := make(map[string]logicalMonitorInfo, len(matches))
+
+	for _, match := range matches {
+		scale, err := strconv.ParseFloat(match[1], 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse logical monitor scale: %w", err)
+		}
+		logicalMonitors[match[3]] = logicalMonitorInfo{
+			scale:     scale,
+			isPrimary: match[2] == "true",
+		}
+	}
+
+	return logicalMonitors, nil
+}
+
+func mergeGNOMEWaylandWithXRandr(gnomeDisplays, xrandrDisplays []model.DisplayInfo) []model.DisplayInfo {
+	xrandrByName := make(map[string]model.DisplayInfo, len(xrandrDisplays))
+	for _, display := range xrandrDisplays {
+		xrandrByName[display.Name] = display
+	}
+
+	merged := make([]model.DisplayInfo, 0, len(gnomeDisplays))
+	for _, display := range gnomeDisplays {
+		if supplemented, ok := xrandrByName[display.Name]; ok && (display.WidthMM <= 0 || display.HeightMM <= 0 || display.PPI <= 0) {
+			display.WidthMM = supplemented.WidthMM
+			display.HeightMM = supplemented.HeightMM
+			display.PPI = supplemented.PPI
+		}
+		merged = append(merged, display)
+	}
+
+	return merged
 }

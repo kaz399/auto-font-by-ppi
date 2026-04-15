@@ -21,7 +21,7 @@ The current rewrite work is being developed on the `go-rewrite-skeleton` branch.
 - Keep the executable as a single CLI binary.
 - Use a layered design:
   - `display`: detect connected displays and physical size information.
-  - `profile`: normalize metrics, detect suspicious values, apply diagonal overrides, and select a profile.
+  - `profile`: normalize metrics, apply diagonal overrides and fallback rules, and select a profile.
   - `target`: convert resolved settings into concrete actions for each program.
   - `app`: orchestrate detection, selection, planning, dry-run output, and apply execution.
 - Represent execution through a plan:
@@ -52,7 +52,7 @@ examples/config.toml
 1. Parse CLI flags.
 2. Load `config.toml`.
 3. Detect displays using configured backends.
-4. Normalize suspicious display metrics and apply diagonal overrides when available.
+4. Normalize display metrics, applying manual overrides first and fallback rules when physical size data is missing.
 5. Select the target display.
 6. Select a profile from the detected PPI.
 7. Build a plan from enabled targets.
@@ -94,12 +94,14 @@ examples/config.toml
 - Kept X11 displays with an active mode even when `xrandr` does not provide usable physical size values, so diagonal overrides can recover them.
 - Implemented `gnome-wayland` backend using `gdbus` and Mutter `DisplayConfig`.
 - Configured backend priority to try `gnome-wayland` before `xrandr` by default.
+- Supplement missing GNOME Wayland millimeter values from `xrandr` when available.
 
 ### Profile logic
 
 - Implemented PPI calculation.
 - Implemented suspicious metric detection.
-- Implemented diagonal override application.
+- Implemented diagonal override application with unconditional precedence when an override exists.
+- Added a fallback that assumes `PPI=100` when no usable physical size data is available after detection.
 - Implemented display selection:
   - explicit preferred display
   - primary display
@@ -137,14 +139,15 @@ examples/config.toml
 - Parse `xrandr` output for connected X11 displays.
 - Keep X11 displays that have an active mode but missing or zero physical size values.
 - Parse GNOME Wayland `gdbus` output.
+- Supplement GNOME Wayland displays with millimeter values from `xrandr` when available.
 - Deduplicate repeated display entries.
 - Detect primary display from the parsed output.
 
 ### Profile tests
 
-- Apply diagonal overrides to suspicious display metrics.
+- Apply diagonal overrides even when detected physical size values are otherwise usable.
 - Apply diagonal overrides to displays that were detected without usable physical size values.
-- Skip displays that still do not have usable physical size values after normalization.
+- Fall back to an assumed `PPI=100` when normalization still lacks usable physical size values.
 - Select preferred and primary displays correctly.
 - Select the expected profile for a given PPI.
 

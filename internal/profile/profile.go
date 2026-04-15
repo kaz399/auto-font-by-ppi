@@ -80,16 +80,21 @@ func NormalizeDisplays(cfg model.DisplayConfig, displays []model.DisplayInfo) ([
 	normalized := make([]model.DisplayInfo, 0, len(displays))
 	for _, display := range displays {
 		current := display
-		if IsSuspicious(cfg, current) {
-			override, ok := cfg.DiagonalOverrides[current.Name]
-			if ok {
-				adjusted, err := ApplyDiagonalOverride(current, override)
-				if err != nil {
-					return nil, err
-				}
-				current = adjusted
+
+		if override, ok := cfg.DiagonalOverrides[current.Name]; ok {
+			adjusted, err := ApplyDiagonalOverride(current, override)
+			if err != nil {
+				return nil, err
 			}
+			current = adjusted
+		} else if current.WidthMM <= 0 || current.HeightMM <= 0 || current.PPI <= 0 {
+			adjusted, err := ApplyAssumedPPI(current, 100)
+			if err != nil {
+				return nil, err
+			}
+			current = adjusted
 		}
+
 		if current.WidthMM <= 0 || current.HeightMM <= 0 || current.PPI <= 0 {
 			continue
 		}
@@ -131,5 +136,29 @@ func ApplyDiagonalOverride(display model.DisplayInfo, diagonalInches float64) (m
 	display.WidthMM = widthMM
 	display.HeightMM = heightMM
 	display.PPI = ppi
+	display.PhysicalSizeSource = "override"
+	display.OverrideDiagonalInches = diagonalInches
+	display.AssumedPPI = 0
 	return display, nil
+}
+
+func ApplyAssumedPPI(display model.DisplayInfo, assumedPPI float64) (model.DisplayInfo, error) {
+	if assumedPPI <= 0 {
+		return model.DisplayInfo{}, fmt.Errorf("assumed PPI must be positive")
+	}
+
+	diagonalPx := math.Hypot(float64(display.WidthPx), float64(display.HeightPx))
+	if diagonalPx == 0 {
+		return model.DisplayInfo{}, fmt.Errorf("display resolution diagonal must not be zero")
+	}
+
+	diagonalInches := diagonalPx / assumedPPI
+	adjusted, err := ApplyDiagonalOverride(display, diagonalInches)
+	if err != nil {
+		return model.DisplayInfo{}, err
+	}
+	adjusted.PhysicalSizeSource = "assumed-ppi"
+	adjusted.AssumedPPI = assumedPPI
+	adjusted.OverrideDiagonalInches = 0
+	return adjusted, nil
 }

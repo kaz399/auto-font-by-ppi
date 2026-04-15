@@ -23,9 +23,11 @@ SOFTWARE.
 package app
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/kazuhiro-yabe/auto-font-by-ppi/internal/execx"
@@ -193,6 +195,82 @@ func TestApplyPlanStopsOnAdapterError(t *testing.T) {
 	}
 	if len(beta.appliedDescriptions) != 0 {
 		t.Fatalf("expected beta adapter not to run after error, got %v", beta.appliedDescriptions)
+	}
+}
+
+func TestPrintPlanShowsDiagonalOverrideNote(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	runner := Runner{
+		Output: &output,
+	}
+
+	runner.printPlan(model.Plan{
+		DryRun: true,
+		Resolved: model.ResolvedSettings{
+			SourceBackend: "gnome-wayland",
+			Display: model.DisplayInfo{
+				Name:                   "HDMI-1",
+				WidthPx:                3072,
+				HeightPx:               1728,
+				WidthMM:                698,
+				HeightMM:               393,
+				PPI:                    112.11,
+				PhysicalSizeSource:     "override",
+				OverrideDiagonalInches: 31.5,
+			},
+			Profile: model.Profile{
+				Name:              "ppi-140",
+				TextScaling:       1.0,
+				UIFontSize:        12,
+				DocumentFontSize:  12,
+				MonospaceFontSize: 11,
+				TitlebarFontSize:  12,
+			},
+		},
+	})
+
+	if !strings.Contains(output.String(), "Selected display: HDMI-1 (3072x1728 px, 698x393 mm, PPI=112.11, diagonal override=31.50 in)") {
+		t.Fatalf("expected selected display output to mention diagonal override, got:\n%s", output.String())
+	}
+}
+
+func TestPrintPlanShowsAssumedPPINote(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	runner := Runner{
+		Output: &output,
+	}
+
+	runner.printPlan(model.Plan{
+		DryRun: true,
+		Resolved: model.ResolvedSettings{
+			SourceBackend: "gnome-wayland",
+			Display: model.DisplayInfo{
+				Name:               "HDMI-1",
+				WidthPx:            3072,
+				HeightPx:           1728,
+				WidthMM:            780,
+				HeightMM:           439,
+				PPI:                100.0,
+				PhysicalSizeSource: "assumed-ppi",
+				AssumedPPI:         100.0,
+			},
+			Profile: model.Profile{
+				Name:              "ppi-110",
+				TextScaling:       1.0,
+				UIFontSize:        11,
+				DocumentFontSize:  11,
+				MonospaceFontSize: 10,
+				TitlebarFontSize:  11,
+			},
+		},
+	})
+
+	if !strings.Contains(output.String(), "Selected display: HDMI-1 (3072x1728 px, 780x439 mm, PPI=100.00, assumed PPI=100.00)") {
+		t.Fatalf("expected selected display output to mention assumed PPI, got:\n%s", output.String())
 	}
 }
 

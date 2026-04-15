@@ -21,7 +21,7 @@
 - 実行形式は単一の CLI バイナリとする
 - レイヤー構成を維持する
   - `display`: 接続中ディスプレイと物理サイズ情報の取得
-  - `profile`: 値の正規化、異常値判定、対角インチ補正、profile 選択
+  - `profile`: 値の正規化、対角インチ補正とフォールバック適用、profile 選択
   - `target`: 解決済み設定を各プログラム向けの具体的な action に変換
   - `app`: 検出、選択、plan 生成、dry-run 表示、apply 実行を統括
 - 実行フローは plan ベースにする
@@ -52,7 +52,7 @@ examples/config.toml
 1. CLI フラグを解析する
 2. `config.toml` を読み込む
 3. 設定された backend 順でディスプレイを検出する
-4. 異常なディスプレイ物理値を正規化し、必要なら対角インチ補正を適用する
+4. ディスプレイ物理値を正規化し、まず手動 override を適用し、足りない情報にはフォールバックを適用する
 5. 対象ディスプレイを選択する
 6. 検出した PPI から profile を選択する
 7. 有効な target から plan を組み立てる
@@ -94,12 +94,14 @@ examples/config.toml
 - `xrandr` が使える物理サイズを返さない場合でも、アクティブな mode を持つ X11 ディスプレイは保持し、対角インチ override で復旧できるようにした
 - GNOME Wayland 向けに `gdbus` と Mutter `DisplayConfig` を使う `gnome-wayland` backend を実装
 - デフォルトの backend 優先順を `gnome-wayland` → `xrandr` に設定
+- GNOME Wayland でミリメートル値が欠ける場合、利用可能なら `xrandr` から補完するようにした
 
 ### Profile ロジック
 
 - PPI 計算を実装
 - 異常値判定を実装
-- 対角インチ override の適用を実装
+- 対角インチ override が存在する場合は常に優先適用するようにした
+- 検出後も使える物理サイズが無い場合に `PPI=100` 仮定へフォールバックするようにした
 - 対象ディスプレイ選択を実装
   - 明示指定された display
   - primary display
@@ -137,14 +139,15 @@ examples/config.toml
 - X11 の接続済みディスプレイに対する `xrandr` 出力パース確認
 - アクティブな mode を持つが物理サイズが欠損または 0 の X11 ディスプレイを保持することの確認
 - GNOME Wayland の `gdbus` 出力パース確認
+- GNOME Wayland のディスプレイに `xrandr` からミリメートル値を補完できることの確認
 - 重複ディスプレイの除去確認
 - primary display 判定の確認
 
 ### Profile テスト
 
-- 異常な物理値に対する diagonal override 適用確認
+- 検出された物理サイズが一見使える場合でも diagonal override が優先適用されることの確認
 - 使える物理サイズが無い状態で検出されたディスプレイにも diagonal override を適用できることの確認
-- 正規化後も使える物理サイズを持たないディスプレイを除外することの確認
+- 正規化後も使える物理サイズが無い場合に `PPI=100` 仮定へフォールバックすることの確認
 - preferred display と primary display の選択確認
 - 指定 PPI に対する profile 選択確認
 
