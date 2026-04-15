@@ -174,3 +174,47 @@ func TestMergeGNOMEWaylandWithXRandr(t *testing.T) {
 		t.Fatalf("unexpected merged displays: got %+v want %+v", merged, want)
 	}
 }
+
+func TestMergeGNOMEWaylandWithXRandrReplacesBogusPhysicalSize(t *testing.T) {
+	t.Parallel()
+
+	gnomeDisplays := []model.DisplayInfo{
+		{
+			Name:      "eDP-1",
+			IsPrimary: true,
+			WidthPx:   2880,
+			HeightPx:  1800,
+			WidthMM:   2880,
+			HeightMM:  1800,
+			PPI:       25.4,
+		},
+	}
+	xrandrDisplays := []model.DisplayInfo{
+		{
+			Name:      "eDP-1",
+			IsPrimary: true,
+			WidthPx:   2880,
+			HeightPx:  1800,
+			WidthMM:   302,
+			HeightMM:  189,
+			PPI:       242.31,
+		},
+	}
+
+	merged := mergeGNOMEWaylandWithXRandr(gnomeDisplays, xrandrDisplays)
+
+	want := []model.DisplayInfo{
+		{
+			Name:      "eDP-1",
+			IsPrimary: true,
+			WidthPx:   2880,
+			HeightPx:  1800,
+			WidthMM:   302,
+			HeightMM:  189,
+			PPI:       242.31,
+		},
+	}
+	if !reflect.DeepEqual(merged, want) {
+		t.Fatalf("unexpected merged displays: got %+v want %+v", merged, want)
+	}
+}

@@ -1,7 +1,9 @@
 dry_run = true
 preferred_display = ""
 display_backend_priority = ["gnome-wayland", "xrandr"]
-target_names = ["gnome", "kitty"]
+target_names = ["gnome"]
+# Add "kitty" here to enable kitty updates.
+# target_names = ["gnome", "kitty"]
 
 [display]
 min_reasonable_ppi = 50
@@ -25,6 +27,7 @@ ui_font_size = 11
 document_font_size = 11
 monospace_font_size = 10
 titlebar_font_size = 11
+kitty_font_size = 10
 
 [[profiles]]
 name = "ppi-140"
@@ -34,6 +37,7 @@ ui_font_size = 12
 document_font_size = 12
 monospace_font_size = 11
 titlebar_font_size = 12
+kitty_font_size = 11
 
 [[profiles]]
 name = "ppi-180"
@@ -43,6 +47,7 @@ ui_font_size = 13
 document_font_size = 13
 monospace_font_size = 12
 titlebar_font_size = 13
+kitty_font_size = 12
 
 [[profiles]]
 name = "ppi-240"
@@ -52,6 +57,7 @@ ui_font_size = 14
 document_font_size = 14
 monospace_font_size = 13
 titlebar_font_size = 14
+kitty_font_size = 13
 
 [[profiles]]
 name = "ppi-9999"
@@ -61,14 +67,13 @@ ui_font_size = 16
 document_font_size = 16
 monospace_font_size = 14
 titlebar_font_size = 16
+kitty_font_size = 14
 
 [target.gnome]
-enabled = true
 mode = "full_fonts"
 
 [target.kitty]
-enabled = false
 strategy = "remote"
 socket = ""
 all = true
-font_size_field = "monospace_font_size"
+font_size_field = "kitty_font_size"

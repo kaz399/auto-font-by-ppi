@@ -126,9 +126,6 @@ func (r Runner) buildPlan(cfg model.Config, resolved model.ResolvedSettings) (mo
 		if !ok {
 			return model.Plan{}, fmt.Errorf("unknown target %q", targetName)
 		}
-		if !adapter.Enabled(cfg) {
-			continue
-		}
 
 		actions, err := adapter.BuildActions(cfg, resolved)
 		if err != nil {

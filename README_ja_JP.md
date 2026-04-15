@@ -14,6 +14,7 @@
 - Go CLI では、手動対角インチ指定があれば検出された物理サイズより常に優先して適用
 - Go CLI では、GNOME Wayland でミリメートル値が取れない場合に `xrandr` から補完
 - Go CLI では、使える物理サイズが無い場合に `PPI=100` 仮定へフォールバック
+- Go CLI では、profile ごとに専用の `kitty_font_size` を設定可能
 - コマンドライン、環境変数、設定ファイルに対応
 
 ## 必要条件
@@ -53,6 +54,10 @@ Go CLI が読む TOML 設定ファイルの既定パスは次のとおりです�
 このファイルが存在しない場合、Go CLI はその場所に既定値ベースのサンプル設定を自動生成してから読み込みます。
 
 現在の設定形式は [examples/config.toml](./examples/config.toml) を参照してください。
+
+どの target を実行するかとその順序は `target_names` だけで決まります。`target.*` セクションには target ごとの詳細設定だけを置きます。kitty は既定では opt-in なので、適用したい場合だけ `target_names` に `"kitty"` を追加してください。
+
+kitty については、各 profile に `kitty_font_size` を定義できます。既定の `target.kitty.font_size_field` は `kitty_font_size` で、古い設定ファイルでこの項目が無い場合は `monospace_font_size` にフォールバックします。
 
 ## モニタサイズの手動上書き
 
@@ -148,11 +153,11 @@ Go CLI の現在の優先順は次のとおりです。
 現在は次の PPI プロファイルを使用します。
 
 ```text
-110  -> scaling 1.00, UI 11, document 11, monospace 10, titlebar 11
-140  -> scaling 1.00, UI 12, document 12, monospace 11, titlebar 12
-180  -> scaling 1.00, UI 13, document 13, monospace 12, titlebar 13
-240  -> scaling 1.00, UI 14, document 14, monospace 13, titlebar 14
-9999 -> scaling 1.60, UI 16, document 16, monospace 14, titlebar 16
+110  -> scaling 1.00, UI 11, document 11, monospace 10, titlebar 11, kitty 10
+140  -> scaling 1.00, UI 12, document 12, monospace 11, titlebar 12, kitty 11
+180  -> scaling 1.00, UI 13, document 13, monospace 12, titlebar 13, kitty 12
+240  -> scaling 1.00, UI 14, document 14, monospace 13, titlebar 14, kitty 13
+9999 -> scaling 1.60, UI 16, document 16, monospace 14, titlebar 16, kitty 14
 ```
 
 ## ライセンス

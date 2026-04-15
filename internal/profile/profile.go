@@ -87,7 +87,7 @@ func NormalizeDisplays(cfg model.DisplayConfig, displays []model.DisplayInfo) ([
 				return nil, err
 			}
 			current = adjusted
-		} else if current.WidthMM <= 0 || current.HeightMM <= 0 || current.PPI <= 0 {
+		} else if IsSuspicious(cfg, current) {
 			adjusted, err := ApplyAssumedPPI(current, 100)
 			if err != nil {
 				return nil, err

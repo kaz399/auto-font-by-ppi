@@ -37,10 +37,6 @@ func (KittyAdapter) Name() string {
 	return "kitty"
 }
 
-func (KittyAdapter) Enabled(cfg model.Config) bool {
-	return cfg.Targets.Kitty.Enabled
-}
-
 func (KittyAdapter) BuildActions(cfg model.Config, resolved model.ResolvedSettings) ([]model.Action, error) {
 	kittyConfig := cfg.Targets.Kitty
 	if kittyConfig.Strategy != "remote" {
@@ -77,7 +73,14 @@ func (KittyAdapter) Apply(ctx context.Context, action model.Action, runner execx
 
 func kittyFontSize(field string, resolved model.ResolvedSettings) (int, error) {
 	switch field {
-	case "", "monospace_font_size":
+	case "":
+		return kittyFontSize("kitty_font_size", resolved)
+	case "kitty_font_size":
+		if resolved.Profile.KittyFontSize > 0 {
+			return resolved.Profile.KittyFontSize, nil
+		}
+		return resolved.Profile.MonospaceFontSize, nil
+	case "monospace_font_size":
 		return resolved.Profile.MonospaceFontSize, nil
 	case "ui_font_size":
 		return resolved.Profile.UIFontSize, nil

@@ -214,7 +214,9 @@ func mergeGNOMEWaylandWithXRandr(gnomeDisplays, xrandrDisplays []model.DisplayIn
 
 	merged := make([]model.DisplayInfo, 0, len(gnomeDisplays))
 	for _, display := range gnomeDisplays {
-		if supplemented, ok := xrandrByName[display.Name]; ok && (display.WidthMM <= 0 || display.HeightMM <= 0 || display.PPI <= 0) {
+		if supplemented, ok := xrandrByName[display.Name]; ok &&
+			!hasUsablePhysicalMetrics(display) &&
+			hasUsablePhysicalMetrics(supplemented) {
 			display.WidthMM = supplemented.WidthMM
 			display.HeightMM = supplemented.HeightMM
 			display.PPI = supplemented.PPI
@@ -223,4 +225,14 @@ func mergeGNOMEWaylandWithXRandr(gnomeDisplays, xrandrDisplays []model.DisplayIn
 	}
 
 	return merged
+}
+
+func hasUsablePhysicalMetrics(display model.DisplayInfo) bool {
+	if display.WidthMM <= 0 || display.HeightMM <= 0 || display.PPI <= 0 {
+		return false
+	}
+	if display.WidthMM == display.WidthPx && display.HeightMM == display.HeightPx {
+		return false
+	}
+	return true
 }

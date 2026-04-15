@@ -35,7 +35,7 @@ import (
 	"github.com/kazuhiro-yabe/auto-font-by-ppi/internal/target"
 )
 
-func TestBuildPlanRespectsTargetOrderAndSkipsDisabledTargets(t *testing.T) {
+func TestBuildPlanRespectsTargetOrder(t *testing.T) {
 	t.Parallel()
 
 	alphaActions := []model.Action{
@@ -48,14 +48,14 @@ func TestBuildPlanRespectsTargetOrderAndSkipsDisabledTargets(t *testing.T) {
 
 	runner := Runner{
 		Targets: adaptersFromValues([]fakeAdapter{
-			{name: "alpha", enabled: true, buildActions: alphaActions},
-			{name: "beta", enabled: false, buildActions: betaActions},
+			{name: "alpha", buildActions: alphaActions},
+			{name: "beta", buildActions: betaActions},
 		}),
 	}
 
 	cfg := model.Config{
 		DryRun:      true,
-		TargetNames: []string{"beta", "alpha"},
+		TargetNames: []string{"alpha"},
 	}
 
 	plan, err := runner.buildPlan(cfg, testResolvedSettings())
@@ -78,7 +78,7 @@ func TestBuildPlanReturnsErrorForUnknownTarget(t *testing.T) {
 
 	runner := Runner{
 		Targets: adaptersFromValues([]fakeAdapter{
-			{name: "alpha", enabled: true},
+			{name: "alpha"},
 		}),
 	}
 
@@ -97,7 +97,7 @@ func TestBuildPlanPropagatesBuildActionsError(t *testing.T) {
 	wantErr := errors.New("build failed")
 	runner := Runner{
 		Targets: adaptersFromValues([]fakeAdapter{
-			{name: "alpha", enabled: true, buildErr: wantErr},
+			{name: "alpha", buildErr: wantErr},
 		}),
 	}
 
@@ -114,8 +114,8 @@ func TestBuildPlanPropagatesBuildActionsError(t *testing.T) {
 func TestApplyPlanRunsActionsInOrder(t *testing.T) {
 	t.Parallel()
 
-	alpha := &fakeAdapter{name: "alpha", enabled: true}
-	beta := &fakeAdapter{name: "beta", enabled: true}
+	alpha := &fakeAdapter{name: "alpha"}
+	beta := &fakeAdapter{name: "beta"}
 	execRunner := &fakeExecRunner{}
 
 	runner := Runner{
@@ -151,7 +151,7 @@ func TestApplyPlanReturnsErrorForUnknownActionTarget(t *testing.T) {
 
 	runner := Runner{
 		Targets: adaptersFromValues([]fakeAdapter{
-			{name: "alpha", enabled: true},
+			{name: "alpha"},
 		}),
 		CommandRunner: &fakeExecRunner{},
 	}
@@ -171,8 +171,8 @@ func TestApplyPlanStopsOnAdapterError(t *testing.T) {
 	t.Parallel()
 
 	wantErr := errors.New("apply failed")
-	alpha := &fakeAdapter{name: "alpha", enabled: true, applyErr: wantErr}
-	beta := &fakeAdapter{name: "beta", enabled: true}
+	alpha := &fakeAdapter{name: "alpha", applyErr: wantErr}
+	beta := &fakeAdapter{name: "beta"}
 
 	runner := Runner{
 		Targets:       adaptersFromPointers(alpha, beta),
@@ -276,7 +276,6 @@ func TestPrintPlanShowsAssumedPPINote(t *testing.T) {
 
 type fakeAdapter struct {
 	name                string
-	enabled             bool
 	buildActions        []model.Action
 	buildErr            error
 	applyErr            error
@@ -286,10 +285,6 @@ type fakeAdapter struct {
 
 func (a *fakeAdapter) Name() string {
 	return a.name
-}
-
-func (a *fakeAdapter) Enabled(_ model.Config) bool {
-	return a.enabled
 }
 
 func (a *fakeAdapter) BuildActions(_ model.Config, _ model.ResolvedSettings) ([]model.Action, error) {

@@ -55,6 +55,7 @@ type Profile struct {
 	DocumentFontSize  int
 	MonospaceFontSize int
 	TitlebarFontSize  int
+	KittyFontSize     int
 }
 
 type TargetConfigs struct {
@@ -63,12 +64,10 @@ type TargetConfigs struct {
 }
 
 type GNOMETargetConfig struct {
-	Enabled bool
-	Mode    string
+	Mode string
 }
 
 type KittyTargetConfig struct {
-	Enabled       bool
 	Strategy      string
 	Socket        string
 	All           bool

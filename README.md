@@ -14,6 +14,7 @@ Automatically adjust GNOME font settings based on the target display PPI.
 - Applies manual diagonal overrides before using detected physical size values on the Go CLI
 - On the Go CLI, supplements missing GNOME Wayland millimeter data from `xrandr` when available
 - On the Go CLI, falls back to an assumed `PPI=100` when no usable physical size data is available
+- On the Go CLI, supports a dedicated `kitty_font_size` per profile
 - Supports command-line options, environment variables, and a config file
 
 ## Requirements
@@ -53,6 +54,10 @@ The Go CLI reads TOML config from:
 If that file does not exist, the Go CLI creates a default sample config there automatically and then loads it.
 
 See [examples/config.toml](./examples/config.toml) for the current config format.
+
+`target_names` is the single source of truth for which targets run and in what order. The `target.*` sections contain per-target settings only. By default, kitty is opt-in, so add `"kitty"` to `target_names` when you want it applied.
+
+For kitty, each profile can define `kitty_font_size`. The default `target.kitty.font_size_field` is `kitty_font_size`, and if that field is not set in an older config, the Go CLI falls back to `monospace_font_size`.
 
 ## Manual Monitor Size Override
 
@@ -148,11 +153,11 @@ The current Go CLI supports:
 The script currently uses these PPI profiles:
 
 ```text
-110  -> scaling 1.00, UI 11, document 11, monospace 10, titlebar 11
-140  -> scaling 1.00, UI 12, document 12, monospace 11, titlebar 12
-180  -> scaling 1.00, UI 13, document 13, monospace 12, titlebar 13
-240  -> scaling 1.00, UI 14, document 14, monospace 13, titlebar 14
-9999 -> scaling 1.60, UI 16, document 16, monospace 14, titlebar 16
+110  -> scaling 1.00, UI 11, document 11, monospace 10, titlebar 11, kitty 10
+140  -> scaling 1.00, UI 12, document 12, monospace 11, titlebar 12, kitty 11
+180  -> scaling 1.00, UI 13, document 13, monospace 12, titlebar 13, kitty 12
+240  -> scaling 1.00, UI 14, document 14, monospace 13, titlebar 14, kitty 13
+9999 -> scaling 1.60, UI 16, document 16, monospace 14, titlebar 16, kitty 14
 ```
 
 ## License

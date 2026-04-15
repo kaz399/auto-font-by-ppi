@@ -52,7 +52,7 @@ func DefaultConfig() model.Config {
 		DryRun:                 true,
 		PreferredDisplay:       "",
 		DisplayBackendPriority: []string{"gnome-wayland", "xrandr"},
-		TargetNames:            []string{"gnome", "kitty"},
+		TargetNames:            []string{"gnome"},
 		Display: model.DisplayConfig{
 			MinReasonablePPI:  50,
 			MaxReasonablePPI:  400,
@@ -65,23 +65,21 @@ func DefaultConfig() model.Config {
 			Titlebar:  "Cantarell Bold",
 		},
 		Profiles: []model.Profile{
-			{Name: "ppi-110", MaxPPI: 110, TextScaling: 1.00, UIFontSize: 11, DocumentFontSize: 11, MonospaceFontSize: 10, TitlebarFontSize: 11},
-			{Name: "ppi-140", MaxPPI: 140, TextScaling: 1.00, UIFontSize: 12, DocumentFontSize: 12, MonospaceFontSize: 11, TitlebarFontSize: 12},
-			{Name: "ppi-180", MaxPPI: 180, TextScaling: 1.00, UIFontSize: 13, DocumentFontSize: 13, MonospaceFontSize: 12, TitlebarFontSize: 13},
-			{Name: "ppi-240", MaxPPI: 240, TextScaling: 1.00, UIFontSize: 14, DocumentFontSize: 14, MonospaceFontSize: 13, TitlebarFontSize: 14},
-			{Name: "ppi-9999", MaxPPI: 9999, TextScaling: 1.60, UIFontSize: 16, DocumentFontSize: 16, MonospaceFontSize: 14, TitlebarFontSize: 16},
+			{Name: "ppi-110", MaxPPI: 110, TextScaling: 1.00, UIFontSize: 11, DocumentFontSize: 11, MonospaceFontSize: 10, TitlebarFontSize: 11, KittyFontSize: 10},
+			{Name: "ppi-140", MaxPPI: 140, TextScaling: 1.00, UIFontSize: 12, DocumentFontSize: 12, MonospaceFontSize: 11, TitlebarFontSize: 12, KittyFontSize: 11},
+			{Name: "ppi-180", MaxPPI: 180, TextScaling: 1.00, UIFontSize: 13, DocumentFontSize: 13, MonospaceFontSize: 12, TitlebarFontSize: 13, KittyFontSize: 12},
+			{Name: "ppi-240", MaxPPI: 240, TextScaling: 1.00, UIFontSize: 14, DocumentFontSize: 14, MonospaceFontSize: 13, TitlebarFontSize: 14, KittyFontSize: 13},
+			{Name: "ppi-9999", MaxPPI: 9999, TextScaling: 1.60, UIFontSize: 16, DocumentFontSize: 16, MonospaceFontSize: 14, TitlebarFontSize: 16, KittyFontSize: 14},
 		},
 		Targets: model.TargetConfigs{
 			GNOME: model.GNOMETargetConfig{
-				Enabled: true,
-				Mode:    "full_fonts",
+				Mode: "full_fonts",
 			},
 			Kitty: model.KittyTargetConfig{
-				Enabled:       false,
 				Strategy:      "remote",
 				Socket:        "",
 				All:           true,
-				FontSizeField: "monospace_font_size",
+				FontSizeField: "kitty_font_size",
 			},
 		},
 	}
@@ -158,6 +156,9 @@ func sampleConfigText() string {
 	builder.WriteString("# \"HDMI-1\" = 31.5\n")
 	builder.WriteString("# \"eDP-1\" = 14.0\n\n")
 
+	builder.WriteString("# Add \"kitty\" to target_names to enable kitty updates.\n")
+	builder.WriteString("# Example: target_names = [\"gnome\", \"kitty\"]\n\n")
+
 	builder.WriteString("[fonts]\n")
 	fmt.Fprintf(&builder, "ui_family = %q\n", cfg.Fonts.UI)
 	fmt.Fprintf(&builder, "document_family = %q\n", cfg.Fonts.Document)
@@ -172,15 +173,14 @@ func sampleConfigText() string {
 		fmt.Fprintf(&builder, "ui_font_size = %d\n", profile.UIFontSize)
 		fmt.Fprintf(&builder, "document_font_size = %d\n", profile.DocumentFontSize)
 		fmt.Fprintf(&builder, "monospace_font_size = %d\n", profile.MonospaceFontSize)
-		fmt.Fprintf(&builder, "titlebar_font_size = %d\n\n", profile.TitlebarFontSize)
+		fmt.Fprintf(&builder, "titlebar_font_size = %d\n", profile.TitlebarFontSize)
+		fmt.Fprintf(&builder, "kitty_font_size = %d\n\n", profile.KittyFontSize)
 	}
 
 	builder.WriteString("[target.gnome]\n")
-	fmt.Fprintf(&builder, "enabled = %t\n", cfg.Targets.GNOME.Enabled)
 	fmt.Fprintf(&builder, "mode = %q\n\n", cfg.Targets.GNOME.Mode)
 
 	builder.WriteString("[target.kitty]\n")
-	fmt.Fprintf(&builder, "enabled = %t\n", cfg.Targets.Kitty.Enabled)
 	fmt.Fprintf(&builder, "strategy = %q\n", cfg.Targets.Kitty.Strategy)
 	fmt.Fprintf(&builder, "socket = %q\n", cfg.Targets.Kitty.Socket)
 	fmt.Fprintf(&builder, "all = %t\n", cfg.Targets.Kitty.All)
@@ -265,6 +265,7 @@ type profileFileConfig struct {
 	DocumentFontSize  int     `toml:"document_font_size"`
 	MonospaceFontSize int     `toml:"monospace_font_size"`
 	TitlebarFontSize  int     `toml:"titlebar_font_size"`
+	KittyFontSize     int     `toml:"kitty_font_size"`
 }
 
 type targetFileConfig struct {
@@ -273,12 +274,10 @@ type targetFileConfig struct {
 }
 
 type gnomeTargetFileConfig struct {
-	Enabled *bool   `toml:"enabled"`
-	Mode    *string `toml:"mode"`
+	Mode *string `toml:"mode"`
 }
 
 type kittyTargetFileConfig struct {
-	Enabled       *bool   `toml:"enabled"`
 	Strategy      *string `toml:"strategy"`
 	Socket        *string `toml:"socket"`
 	All           *bool   `toml:"all"`
@@ -325,6 +324,7 @@ func mergeConfig(cfg *model.Config, decoded fileConfig) {
 				DocumentFontSize:  profile.DocumentFontSize,
 				MonospaceFontSize: profile.MonospaceFontSize,
 				TitlebarFontSize:  profile.TitlebarFontSize,
+				KittyFontSize:     profile.KittyFontSize,
 			})
 		}
 	}
@@ -366,18 +366,12 @@ func mergeFontsConfig(cfg *model.FontFamilies, decoded fontsFileConfig) {
 
 func mergeTargetConfig(cfg *model.TargetConfigs, decoded targetFileConfig) {
 	if decoded.GNOME != nil {
-		if decoded.GNOME.Enabled != nil {
-			cfg.GNOME.Enabled = *decoded.GNOME.Enabled
-		}
 		if decoded.GNOME.Mode != nil {
 			cfg.GNOME.Mode = *decoded.GNOME.Mode
 		}
 	}
 
 	if decoded.Kitty != nil {
-		if decoded.Kitty.Enabled != nil {
-			cfg.Kitty.Enabled = *decoded.Kitty.Enabled
-		}
 		if decoded.Kitty.Strategy != nil {
 			cfg.Kitty.Strategy = *decoded.Kitty.Strategy
 		}

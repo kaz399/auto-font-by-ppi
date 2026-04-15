@@ -37,10 +37,6 @@ func (GNOMEAdapter) Name() string {
 	return "gnome"
 }
 
-func (GNOMEAdapter) Enabled(cfg model.Config) bool {
-	return cfg.Targets.GNOME.Enabled
-}
-
 func (GNOMEAdapter) BuildActions(cfg model.Config, resolved model.ResolvedSettings) ([]model.Action, error) {
 	gnomeConfig := cfg.Targets.GNOME
 	scaling := strconv.FormatFloat(resolved.Profile.TextScaling, 'f', 2, 64)

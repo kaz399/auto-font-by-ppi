@@ -189,6 +189,59 @@ func TestNormalizeDisplaysFallsBackToAssumedPPIWhenPhysicalSizeIsMissing(t *test
 	}
 }
 
+func TestNormalizeDisplaysFallsBackToAssumedPPIWhenMetricsAreSuspicious(t *testing.T) {
+	t.Parallel()
+
+	cfg := model.DisplayConfig{
+		MinReasonablePPI: 50,
+		MaxReasonablePPI: 400,
+	}
+
+	displays := []model.DisplayInfo{
+		{
+			Name:      "eDP-1",
+			IsPrimary: true,
+			WidthPx:   2880,
+			HeightPx:  1800,
+			WidthMM:   2880,
+			HeightMM:  1800,
+			PPI:       25.4,
+		},
+		{
+			Name:      "HDMI-1",
+			IsPrimary: false,
+			WidthPx:   3840,
+			HeightPx:  2160,
+			WidthMM:   600,
+			HeightMM:  340,
+			PPI:       999,
+		},
+	}
+
+	normalized, err := NormalizeDisplays(cfg, displays)
+	if err != nil {
+		t.Fatalf("NormalizeDisplays returned error: %v", err)
+	}
+
+	if got := len(normalized); got != 2 {
+		t.Fatalf("unexpected normalized display count: got %d want 2", got)
+	}
+
+	if normalized[0].PhysicalSizeSource != "assumed-ppi" {
+		t.Fatalf("unexpected first display physical size source: got %q want %q", normalized[0].PhysicalSizeSource, "assumed-ppi")
+	}
+	if diff := math.Abs(normalized[0].PPI - 100.0); diff > 1.0 {
+		t.Fatalf("expected first display fallback PPI around 100, got %.2f", normalized[0].PPI)
+	}
+
+	if normalized[1].PhysicalSizeSource != "assumed-ppi" {
+		t.Fatalf("unexpected second display physical size source: got %q want %q", normalized[1].PhysicalSizeSource, "assumed-ppi")
+	}
+	if diff := math.Abs(normalized[1].PPI - 100.0); diff > 1.0 {
+		t.Fatalf("expected second display fallback PPI around 100, got %.2f", normalized[1].PPI)
+	}
+}
+
 func TestSelectDisplay(t *testing.T) {
 	t.Parallel()
 

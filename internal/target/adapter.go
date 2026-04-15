@@ -32,7 +32,6 @@ import (
 
 type Adapter interface {
 	Name() string
-	Enabled(cfg model.Config) bool
 	BuildActions(cfg model.Config, resolved model.ResolvedSettings) ([]model.Action, error)
 	Apply(ctx context.Context, action model.Action, runner execx.Runner) error
 }

@@ -41,15 +41,13 @@ func testConfig() model.Config {
 	return model.Config{
 		Targets: model.TargetConfigs{
 			GNOME: model.GNOMETargetConfig{
-				Enabled: true,
-				Mode:    "full_fonts",
+				Mode: "full_fonts",
 			},
 			Kitty: model.KittyTargetConfig{
-				Enabled:       false,
 				Strategy:      "remote",
 				Socket:        "",
 				All:           true,
-				FontSizeField: "monospace_font_size",
+				FontSizeField: "kitty_font_size",
 			},
 		},
 	}
@@ -69,6 +67,7 @@ func testResolvedSettings() model.ResolvedSettings {
 			DocumentFontSize:  14,
 			MonospaceFontSize: 13,
 			TitlebarFontSize:  15,
+			KittyFontSize:     12,
 		},
 	}
 }

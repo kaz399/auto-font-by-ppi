@@ -51,7 +51,7 @@ func TestParseExampleConfig(t *testing.T) {
 	if got, want := cfg.DisplayBackendPriority, []string{"gnome-wayland", "xrandr"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("unexpected backend priority: got %v want %v", got, want)
 	}
-	if got, want := cfg.TargetNames, []string{"gnome", "kitty"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+	if got, want := cfg.TargetNames, []string{"gnome"}; len(got) != len(want) || got[0] != want[0] {
 		t.Fatalf("unexpected target names: got %v want %v", got, want)
 	}
 	if got := cfg.Display.DiagonalOverrides["HDMI-1"]; got != 31.5 {
@@ -60,8 +60,14 @@ func TestParseExampleConfig(t *testing.T) {
 	if got := cfg.Targets.Kitty.Strategy; got != "remote" {
 		t.Fatalf("unexpected kitty strategy: got %q want %q", got, "remote")
 	}
+	if got := cfg.Targets.Kitty.FontSizeField; got != "kitty_font_size" {
+		t.Fatalf("unexpected kitty font size field: got %q want %q", got, "kitty_font_size")
+	}
 	if got := len(cfg.Profiles); got != 5 {
 		t.Fatalf("unexpected profile count: got %d want 5", got)
+	}
+	if got := cfg.Profiles[1].KittyFontSize; got != 11 {
+		t.Fatalf("unexpected kitty font size: got %d want 11", got)
 	}
 }
 
@@ -96,13 +102,12 @@ ui_font_size = 15
 document_font_size = 16
 monospace_font_size = 14
 titlebar_font_size = 17
+kitty_font_size = 18
 
 [target.gnome]
-enabled = false
 mode = "scaling_only"
 
 [target.kitty]
-enabled = true
 strategy = "remote"
 socket = "unix:/tmp/kitty.sock"
 all = false
@@ -134,14 +139,14 @@ font_size_field = "ui_font_size"
 	if got := cfg.Profiles[0].Name; got != "custom" {
 		t.Fatalf("unexpected profile name: got %q want %q", got, "custom")
 	}
-	if got := cfg.Targets.GNOME.Enabled; got {
-		t.Fatalf("unexpected GNOME enabled flag: got %v want false", got)
-	}
 	if got := cfg.Targets.Kitty.Socket; got != "unix:/tmp/kitty.sock" {
 		t.Fatalf("unexpected kitty socket: got %q want %q", got, "unix:/tmp/kitty.sock")
 	}
 	if got := cfg.Targets.Kitty.All; got {
 		t.Fatalf("unexpected kitty all flag: got %v want false", got)
+	}
+	if got := cfg.Profiles[0].KittyFontSize; got != 18 {
+		t.Fatalf("unexpected kitty font size: got %d want 18", got)
 	}
 }
 
@@ -164,7 +169,7 @@ func TestParseRejectsUnknownNestedKey(t *testing.T) {
 	cfg := DefaultConfig()
 	input := `
 [target.kitty]
-enabled = true
+strategy = "remote"
 unknown_key = "value"
 `
 
@@ -173,6 +178,29 @@ unknown_key = "value"
 		t.Fatal("expected parse to fail for an unknown nested key")
 	}
 	if !strings.Contains(err.Error(), `unsupported config key "target.kitty.unknown_key"`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseRejectsLegacyEnabledKeys(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	input := `
+[target.gnome]
+enabled = false
+mode = "scaling_only"
+
+[target.kitty]
+enabled = true
+strategy = "remote"
+`
+
+	err := parse(input, &cfg)
+	if err == nil {
+		t.Fatal("expected parse to fail for legacy enabled keys")
+	}
+	if !strings.Contains(err.Error(), `unsupported config key "target.gnome.enabled"`) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -198,6 +226,9 @@ func TestLoadCreatesSampleConfigWhenMissing(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "Generated default configuration for auto-font-by-ppi.") {
 		t.Fatalf("generated config did not contain the expected header")
+	}
+	if !strings.Contains(string(data), "# Add \"kitty\" to target_names to enable kitty updates.") {
+		t.Fatalf("generated config did not contain the expected kitty opt-in hint")
 	}
 
 	reloaded, err := Load(path)

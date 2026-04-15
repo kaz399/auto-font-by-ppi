@@ -33,18 +33,17 @@ func TestKittyBuildActionsRemoteWithSocket(t *testing.T) {
 
 	adapter := KittyAdapter{}
 	cfg := testConfig()
-	cfg.Targets.Kitty.Enabled = true
 	cfg.Targets.Kitty.Strategy = "remote"
 	cfg.Targets.Kitty.Socket = "unix:/tmp/kitty.sock"
 	cfg.Targets.Kitty.All = true
-	cfg.Targets.Kitty.FontSizeField = "monospace_font_size"
+	cfg.Targets.Kitty.FontSizeField = "kitty_font_size"
 
 	actions, err := adapter.BuildActions(cfg, testResolvedSettings())
 	if err != nil {
 		t.Fatalf("BuildActions returned error: %v", err)
 	}
 
-	want := []string{"kitten", "@", "--to", "unix:/tmp/kitty.sock", "set-font-size", "--all", "13"}
+	want := []string{"kitten", "@", "--to", "unix:/tmp/kitty.sock", "set-font-size", "--all", "12"}
 	if got := len(actions); got != 1 {
 		t.Fatalf("unexpected action count: got %d want 1", got)
 	}
@@ -58,7 +57,6 @@ func TestKittyBuildActionsUsesConfiguredFontField(t *testing.T) {
 
 	adapter := KittyAdapter{}
 	cfg := testConfig()
-	cfg.Targets.Kitty.Enabled = true
 	cfg.Targets.Kitty.Strategy = "remote"
 	cfg.Targets.Kitty.All = false
 	cfg.Targets.Kitty.FontSizeField = "ui_font_size"
@@ -74,12 +72,33 @@ func TestKittyBuildActionsUsesConfiguredFontField(t *testing.T) {
 	}
 }
 
+func TestKittyBuildActionsFallsBackToMonospaceFontSize(t *testing.T) {
+	t.Parallel()
+
+	adapter := KittyAdapter{}
+	cfg := testConfig()
+	cfg.Targets.Kitty.Strategy = "remote"
+	cfg.Targets.Kitty.FontSizeField = "kitty_font_size"
+
+	resolved := testResolvedSettings()
+	resolved.Profile.KittyFontSize = 0
+
+	actions, err := adapter.BuildActions(cfg, resolved)
+	if err != nil {
+		t.Fatalf("BuildActions returned error: %v", err)
+	}
+
+	want := []string{"kitten", "@", "set-font-size", "--all", "13"}
+	if !reflect.DeepEqual(actions[0].Command, want) {
+		t.Fatalf("unexpected kitty command: got %v want %v", actions[0].Command, want)
+	}
+}
+
 func TestKittyBuildActionsRejectsUnsupportedStrategy(t *testing.T) {
 	t.Parallel()
 
 	adapter := KittyAdapter{}
 	cfg := testConfig()
-	cfg.Targets.Kitty.Enabled = true
 	cfg.Targets.Kitty.Strategy = "config-file"
 
 	if _, err := adapter.BuildActions(cfg, testResolvedSettings()); err == nil {
@@ -92,7 +111,6 @@ func TestKittyBuildActionsRejectsUnsupportedFontField(t *testing.T) {
 
 	adapter := KittyAdapter{}
 	cfg := testConfig()
-	cfg.Targets.Kitty.Enabled = true
 	cfg.Targets.Kitty.Strategy = "remote"
 	cfg.Targets.Kitty.FontSizeField = "titlebar_font_size"
 
