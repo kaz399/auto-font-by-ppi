@@ -19,6 +19,8 @@ document_family = "Cantarell"
 monospace_family = "Monospace"
 titlebar_family = "Cantarell Bold"
 
+# kitty_font_size accepts integers or decimals such as 12.5.
+
 [[profiles]]
 name = "ppi-110"
 max_ppi = 110

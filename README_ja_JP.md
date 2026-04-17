@@ -57,7 +57,7 @@ Go CLI が読む TOML 設定ファイルの既定パスは次のとおりです�
 
 どの target を実行するかとその順序は `target_names` だけで決まります。`target.*` セクションには target ごとの詳細設定だけを置きます。kitty は既定では opt-in なので、適用したい場合だけ `target_names` に `"kitty"` を追加してください。
 
-kitty については、各 profile に `kitty_font_size` を定義できます。既定の `target.kitty.font_size_field` は `kitty_font_size` で、古い設定ファイルでこの項目が無い場合は `monospace_font_size` にフォールバックします。
+kitty については、各 profile に `kitty_font_size` を定義できます。`12.5` のような整数以外の小数も指定できます。既定の `target.kitty.font_size_field` は `kitty_font_size` で、古い設定ファイルでこの項目が無い場合は `monospace_font_size` にフォールバックします。
 
 ## モニタサイズの手動上書き
 

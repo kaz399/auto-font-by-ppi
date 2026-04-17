@@ -43,7 +43,7 @@ func TestKittyBuildActionsRemoteWithSocket(t *testing.T) {
 		t.Fatalf("BuildActions returned error: %v", err)
 	}
 
-	want := []string{"kitten", "@", "--to", "unix:/tmp/kitty.sock", "set-font-size", "--all", "12"}
+	want := []string{"kitten", "@", "--to", "unix:/tmp/kitty.sock", "set-font-size", "--all", "12.5"}
 	if got := len(actions); got != 1 {
 		t.Fatalf("unexpected action count: got %d want 1", got)
 	}
@@ -89,6 +89,28 @@ func TestKittyBuildActionsFallsBackToMonospaceFontSize(t *testing.T) {
 	}
 
 	want := []string{"kitten", "@", "set-font-size", "--all", "13"}
+	if !reflect.DeepEqual(actions[0].Command, want) {
+		t.Fatalf("unexpected kitty command: got %v want %v", actions[0].Command, want)
+	}
+}
+
+func TestKittyBuildActionsUsesDecimalKittyFontSize(t *testing.T) {
+	t.Parallel()
+
+	adapter := KittyAdapter{}
+	cfg := testConfig()
+	cfg.Targets.Kitty.Strategy = "remote"
+	cfg.Targets.Kitty.FontSizeField = "kitty_font_size"
+
+	resolved := testResolvedSettings()
+	resolved.Profile.KittyFontSize = 10.75
+
+	actions, err := adapter.BuildActions(cfg, resolved)
+	if err != nil {
+		t.Fatalf("BuildActions returned error: %v", err)
+	}
+
+	want := []string{"kitten", "@", "set-font-size", "--all", "10.75"}
 	if !reflect.DeepEqual(actions[0].Command, want) {
 		t.Fatalf("unexpected kitty command: got %v want %v", actions[0].Command, want)
 	}

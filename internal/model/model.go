@@ -55,7 +55,7 @@ type Profile struct {
 	DocumentFontSize  int
 	MonospaceFontSize int
 	TitlebarFontSize  int
-	KittyFontSize     int
+	KittyFontSize     float64
 }
 
 type TargetConfigs struct {

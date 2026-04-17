@@ -57,7 +57,7 @@ See [examples/config.toml](./examples/config.toml) for the current config format
 
 `target_names` is the single source of truth for which targets run and in what order. The `target.*` sections contain per-target settings only. By default, kitty is opt-in, so add `"kitty"` to `target_names` when you want it applied.
 
-For kitty, each profile can define `kitty_font_size`. The default `target.kitty.font_size_field` is `kitty_font_size`, and if that field is not set in an older config, the Go CLI falls back to `monospace_font_size`.
+For kitty, each profile can define `kitty_font_size`. It accepts integers or decimals such as `12.5`. The default `target.kitty.font_size_field` is `kitty_font_size`, and if that field is not set in an older config, the Go CLI falls back to `monospace_font_size`.
 
 ## Manual Monitor Size Override
 

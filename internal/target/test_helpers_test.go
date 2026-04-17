@@ -67,7 +67,7 @@ func testResolvedSettings() model.ResolvedSettings {
 			DocumentFontSize:  14,
 			MonospaceFontSize: 13,
 			TitlebarFontSize:  15,
-			KittyFontSize:     12,
+			KittyFontSize:     12.5,
 		},
 	}
 }

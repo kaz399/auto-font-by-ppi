@@ -165,6 +165,8 @@ func sampleConfigText() string {
 	fmt.Fprintf(&builder, "monospace_family = %q\n", cfg.Fonts.Monospace)
 	fmt.Fprintf(&builder, "titlebar_family = %q\n\n", cfg.Fonts.Titlebar)
 
+	builder.WriteString("# kitty_font_size accepts integers or decimals such as 12.5.\n\n")
+
 	for _, profile := range cfg.Profiles {
 		builder.WriteString("[[profiles]]\n")
 		fmt.Fprintf(&builder, "name = %q\n", profile.Name)
@@ -174,7 +176,7 @@ func sampleConfigText() string {
 		fmt.Fprintf(&builder, "document_font_size = %d\n", profile.DocumentFontSize)
 		fmt.Fprintf(&builder, "monospace_font_size = %d\n", profile.MonospaceFontSize)
 		fmt.Fprintf(&builder, "titlebar_font_size = %d\n", profile.TitlebarFontSize)
-		fmt.Fprintf(&builder, "kitty_font_size = %d\n\n", profile.KittyFontSize)
+		fmt.Fprintf(&builder, "kitty_font_size = %s\n\n", formatFloat(profile.KittyFontSize))
 	}
 
 	builder.WriteString("[target.gnome]\n")
@@ -265,7 +267,7 @@ type profileFileConfig struct {
 	DocumentFontSize  int     `toml:"document_font_size"`
 	MonospaceFontSize int     `toml:"monospace_font_size"`
 	TitlebarFontSize  int     `toml:"titlebar_font_size"`
-	KittyFontSize     int     `toml:"kitty_font_size"`
+	KittyFontSize     float64 `toml:"kitty_font_size"`
 }
 
 type targetFileConfig struct {

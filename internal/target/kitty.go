@@ -25,7 +25,6 @@ package target
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/kazuhiro-yabe/auto-font-by-ppi/internal/execx"
 	"github.com/kazuhiro-yabe/auto-font-by-ppi/internal/model"
@@ -56,12 +55,12 @@ func (KittyAdapter) BuildActions(cfg model.Config, resolved model.ResolvedSettin
 	if kittyConfig.All {
 		command = append(command, "--all")
 	}
-	command = append(command, strconv.Itoa(size))
+	command = append(command, formatKittyFontSize(size))
 
 	return []model.Action{
 		{
 			Target:      "kitty",
-			Description: fmt.Sprintf("Set kitty font size to %d", size),
+			Description: fmt.Sprintf("Set kitty font size to %s", formatKittyFontSize(size)),
 			Command:     command,
 		},
 	}, nil
@@ -71,7 +70,7 @@ func (KittyAdapter) Apply(ctx context.Context, action model.Action, runner execx
 	return applyCommandAction(ctx, action, runner)
 }
 
-func kittyFontSize(field string, resolved model.ResolvedSettings) (int, error) {
+func kittyFontSize(field string, resolved model.ResolvedSettings) (float64, error) {
 	switch field {
 	case "":
 		return kittyFontSize("kitty_font_size", resolved)
@@ -79,14 +78,18 @@ func kittyFontSize(field string, resolved model.ResolvedSettings) (int, error) {
 		if resolved.Profile.KittyFontSize > 0 {
 			return resolved.Profile.KittyFontSize, nil
 		}
-		return resolved.Profile.MonospaceFontSize, nil
+		return float64(resolved.Profile.MonospaceFontSize), nil
 	case "monospace_font_size":
-		return resolved.Profile.MonospaceFontSize, nil
+		return float64(resolved.Profile.MonospaceFontSize), nil
 	case "ui_font_size":
-		return resolved.Profile.UIFontSize, nil
+		return float64(resolved.Profile.UIFontSize), nil
 	case "document_font_size":
-		return resolved.Profile.DocumentFontSize, nil
+		return float64(resolved.Profile.DocumentFontSize), nil
 	default:
 		return 0, fmt.Errorf("unsupported kitty font_size_field %q", field)
 	}
+}
+
+func formatKittyFontSize(size float64) string {
+	return fmt.Sprintf("%g", size)
 }

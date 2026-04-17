@@ -67,7 +67,7 @@ func TestParseExampleConfig(t *testing.T) {
 		t.Fatalf("unexpected profile count: got %d want 5", got)
 	}
 	if got := cfg.Profiles[1].KittyFontSize; got != 11 {
-		t.Fatalf("unexpected kitty font size: got %d want 11", got)
+		t.Fatalf("unexpected kitty font size: got %v want 11", got)
 	}
 }
 
@@ -102,7 +102,7 @@ ui_font_size = 15
 document_font_size = 16
 monospace_font_size = 14
 titlebar_font_size = 17
-kitty_font_size = 18
+kitty_font_size = 18.5
 
 [target.gnome]
 mode = "scaling_only"
@@ -145,8 +145,8 @@ font_size_field = "ui_font_size"
 	if got := cfg.Targets.Kitty.All; got {
 		t.Fatalf("unexpected kitty all flag: got %v want false", got)
 	}
-	if got := cfg.Profiles[0].KittyFontSize; got != 18 {
-		t.Fatalf("unexpected kitty font size: got %d want 18", got)
+	if got := cfg.Profiles[0].KittyFontSize; got != 18.5 {
+		t.Fatalf("unexpected kitty font size: got %v want 18.5", got)
 	}
 }
 
