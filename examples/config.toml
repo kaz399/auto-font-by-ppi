@@ -1,4 +1,4 @@
-dry_run = true
+dry_run = false
 preferred_display = ""
 display_backend_priority = ["gnome-wayland", "xrandr"]
 target_names = ["gnome"]

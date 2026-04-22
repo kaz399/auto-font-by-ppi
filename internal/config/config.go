@@ -49,7 +49,7 @@ func DefaultConfigPath() string {
 
 func DefaultConfig() model.Config {
 	return model.Config{
-		DryRun:                 true,
+		DryRun:                 false,
 		PreferredDisplay:       "",
 		DisplayBackendPriority: []string{"gnome-wayland", "xrandr"},
 		TargetNames:            []string{"gnome"},

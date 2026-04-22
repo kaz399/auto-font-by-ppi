@@ -11,7 +11,7 @@ The current rewrite work is being developed on the `go-rewrite-skeleton` branch.
 - Replace the monolithic Bash implementation with a maintainable Go CLI.
 - Separate display detection, PPI/profile selection, and target application into clear modules.
 - Support multiple output targets, not only GNOME.
-- Keep dry-run and apply behavior explicit and testable.
+- Keep dry-run behavior explicit and testable while applying settings by default.
 - Make it straightforward to add new backends and target adapters.
 
 ## Design and Implementation Policy
@@ -57,7 +57,7 @@ examples/config.toml
 6. Select a profile from the detected PPI.
 7. Build a plan from enabled targets.
 8. Print the plan.
-9. Apply actions only when `dry_run = false`.
+9. Apply actions by default, and skip execution only when `dry_run = true`.
 
 ## Implemented So Far
 

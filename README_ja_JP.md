@@ -41,7 +41,7 @@ Go リライト版では、Bash スクリプトと並行して実験的な `auto
 
 ```bash
 go run ./cmd/auto-font-by-ppi --dry-run
-go run ./cmd/auto-font-by-ppi --apply --display eDP-1
+go run ./cmd/auto-font-by-ppi --display eDP-1
 go run ./cmd/auto-font-by-ppi --dry-run --display-diagonal HDMI-1=31.5
 ```
 
@@ -52,6 +52,8 @@ Go CLI が読む TOML 設定ファイルの既定パスは次のとおりです�
 ```
 
 このファイルが存在しない場合、Go CLI はその場所に既定値ベースのサンプル設定を自動生成してから読み込みます。
+
+Go CLI はデフォルトで設定を適用します。プレビューだけにしたい場合は `--dry-run` または `dry_run = true` を使ってください。
 
 現在の設定形式は [examples/config.toml](./examples/config.toml) を参照してください。
 
@@ -140,7 +142,6 @@ Go CLI の現在の優先順は次のとおりです。
 
 ```text
 --dry-run
---apply
 --display NAME
 --display-diagonal NAME=INCHES
 --config PATH

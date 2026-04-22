@@ -41,7 +41,7 @@ Example usage:
 
 ```bash
 go run ./cmd/auto-font-by-ppi --dry-run
-go run ./cmd/auto-font-by-ppi --apply --display eDP-1
+go run ./cmd/auto-font-by-ppi --display eDP-1
 go run ./cmd/auto-font-by-ppi --dry-run --display-diagonal HDMI-1=31.5
 ```
 
@@ -52,6 +52,8 @@ The Go CLI reads TOML config from:
 ```
 
 If that file does not exist, the Go CLI creates a default sample config there automatically and then loads it.
+
+By default, the Go CLI applies settings immediately. Use `--dry-run` or `dry_run = true` when you want a preview only.
 
 See [examples/config.toml](./examples/config.toml) for the current config format.
 
@@ -140,7 +142,6 @@ The current Go CLI supports:
 
 ```text
 --dry-run
---apply
 --display NAME
 --display-diagonal NAME=INCHES
 --config PATH

@@ -45,14 +45,12 @@ type Options struct {
 func Parse(args []string) (Options, error) {
 	var options Options
 	var dryRun bool
-	var apply bool
 	var help bool
 
 	flagSet := flag.NewFlagSet("auto-font-by-ppi", flag.ContinueOnError)
 	flagSet.SetOutput(new(strings.Builder))
 	flagSet.StringVar(&options.ConfigPath, "config", "", "load configuration from the specified path")
 	flagSet.BoolVar(&dryRun, "dry-run", false, "show what would change without applying settings")
-	flagSet.BoolVar(&apply, "apply", false, "apply settings")
 	flagSet.StringVar(&options.PreferredDisplay, "display", "", "select a display by connector name")
 	flagSet.Var(displayDiagonalOverridesFlag{target: &options.DisplayDiagonalOverrides}, "display-diagonal", "override a display diagonal in NAME=INCHES form")
 	flagSet.BoolVar(&options.Verbose, "verbose", false, "print more diagnostic information")
@@ -67,16 +65,8 @@ func Parse(args []string) (Options, error) {
 		return Options{}, ErrHelpRequested
 	}
 
-	if dryRun && apply {
-		return Options{}, fmt.Errorf("--dry-run and --apply cannot be used together")
-	}
-
 	if dryRun {
 		value := true
-		options.DryRunOverride = &value
-	}
-	if apply {
-		value := false
 		options.DryRunOverride = &value
 	}
 
@@ -117,9 +107,6 @@ Options:
 
   --dry-run
       Show what would be changed, but do not apply settings.
-
-  --apply
-      Actually apply settings.
 
   --display NAME
       Use the specified display name instead of auto-detecting.

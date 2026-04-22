@@ -11,7 +11,7 @@
 - 単一の Bash スクリプトから、保守しやすい Go 製 CLI へ移行する
 - ディスプレイ検出、PPI/profile 選択、target への適用を明確に分離する
 - GNOME 以外の複数 target を扱える構造にする
-- dry-run と apply の挙動を明示的かつテスト可能にする
+- 設定適用をデフォルトにしつつ、dry-run の挙動を明示的かつテスト可能にする
 - backend や target adapter を追加しやすい形にする
 
 ## 設計・実装方針
@@ -57,7 +57,7 @@ examples/config.toml
 6. 検出した PPI から profile を選択する
 7. 有効な target から plan を組み立てる
 8. plan を表示する
-9. `dry_run = false` のときだけ action を適用する
+9. デフォルトで action を適用し、`dry_run = true` のときだけ実行をスキップする
 
 ## これまでに実装した内容
 

@@ -23,6 +23,7 @@ SOFTWARE.
 package cli
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kazuhiro-yabe/auto-font-by-ppi/internal/model"
@@ -58,6 +59,18 @@ func TestParseRejectsInvalidDisplayDiagonalOverride(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected Parse to fail for %q", value)
 		}
+	}
+}
+
+func TestParseRejectsRemovedApplyFlag(t *testing.T) {
+	t.Parallel()
+
+	_, err := Parse([]string{"--apply"})
+	if err == nil {
+		t.Fatal("expected Parse to fail for removed --apply flag")
+	}
+	if !strings.Contains(err.Error(), "flag provided but not defined: -apply") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
