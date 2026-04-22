@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -271,6 +272,71 @@ func TestPrintPlanShowsAssumedPPINote(t *testing.T) {
 
 	if !strings.Contains(output.String(), "Selected display: HDMI-1 (3072x1728 px, 780x439 mm, PPI=100.00, assumed PPI=100.00)") {
 		t.Fatalf("expected selected display output to mention assumed PPI, got:\n%s", output.String())
+	}
+}
+
+func TestApplyCurrentDisplayOverrideUsesCLIInchOverConfigDiagonalOverride(t *testing.T) {
+	t.Parallel()
+
+	cfg := model.Config{
+		CurrentDisplayOverride: &model.DisplayOverride{
+			Mode:  "inch",
+			Value: 27.0,
+		},
+	}
+	selected := model.DisplayInfo{
+		Name:     "HDMI-1",
+		WidthPx:  3840,
+		HeightPx: 2160,
+		WidthMM:  698,
+		HeightMM: 392,
+		PPI:      140.0,
+	}
+
+	adjusted, err := applyCurrentDisplayOverride(cfg, selected)
+	if err != nil {
+		t.Fatalf("applyCurrentDisplayOverride returned error: %v", err)
+	}
+
+	if adjusted.PhysicalSizeSource != "cli-inch" {
+		t.Fatalf("unexpected physical size source: got %q want %q", adjusted.PhysicalSizeSource, "cli-inch")
+	}
+	if adjusted.OverrideDiagonalInches != 27.0 {
+		t.Fatalf("unexpected diagonal override: got %v want 27.0", adjusted.OverrideDiagonalInches)
+	}
+}
+
+func TestApplyCurrentDisplayOverrideUsesCLIPPI(t *testing.T) {
+	t.Parallel()
+
+	cfg := model.Config{
+		CurrentDisplayOverride: &model.DisplayOverride{
+			Mode:  "ppi",
+			Value: 110.0,
+		},
+	}
+	selected := model.DisplayInfo{
+		Name:     "HDMI-1",
+		WidthPx:  3072,
+		HeightPx: 1728,
+		WidthMM:  598,
+		HeightMM: 336,
+		PPI:      130.0,
+	}
+
+	adjusted, err := applyCurrentDisplayOverride(cfg, selected)
+	if err != nil {
+		t.Fatalf("applyCurrentDisplayOverride returned error: %v", err)
+	}
+
+	if adjusted.PhysicalSizeSource != "cli-ppi" {
+		t.Fatalf("unexpected physical size source: got %q want %q", adjusted.PhysicalSizeSource, "cli-ppi")
+	}
+	if adjusted.AssumedPPI != 110.0 {
+		t.Fatalf("unexpected assumed ppi: got %v want 110.0", adjusted.AssumedPPI)
+	}
+	if diff := math.Abs(adjusted.PPI - 110.0); diff > 0.1 {
+		t.Fatalf("unexpected resulting ppi: got %v want about 110.0", adjusted.PPI)
 	}
 }
 

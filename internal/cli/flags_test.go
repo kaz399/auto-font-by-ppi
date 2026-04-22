@@ -74,6 +74,47 @@ func TestParseRejectsRemovedApplyFlag(t *testing.T) {
 	}
 }
 
+func TestParseAcceptsCurrentDisplayOverrides(t *testing.T) {
+	t.Parallel()
+
+	options, err := Parse([]string{"--inch", "27", "--ppi", "110", "--inch", "31.5"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	if options.CurrentDisplayOverride == nil {
+		t.Fatal("expected current display override to be set")
+	}
+	if got := options.CurrentDisplayOverride.Mode; got != "inch" {
+		t.Fatalf("unexpected override mode: got %q want %q", got, "inch")
+	}
+	if got := options.CurrentDisplayOverride.Value; got != 31.5 {
+		t.Fatalf("unexpected override value: got %v want 31.5", got)
+	}
+}
+
+func TestParseRejectsInvalidCurrentDisplayOverrides(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"--inch", "0"}, want: "invalid inch value"},
+		{args: []string{"--inch", "abc"}, want: "invalid inch value"},
+		{args: []string{"--ppi", "-1"}, want: "invalid ppi value"},
+		{args: []string{"--ppi", "abc"}, want: "invalid ppi value"},
+	} {
+		_, err := Parse(testCase.args)
+		if err == nil {
+			t.Fatalf("expected Parse to fail for %v", testCase.args)
+		}
+		if !strings.Contains(err.Error(), testCase.want) {
+			t.Fatalf("unexpected error for %v: %v", testCase.args, err)
+		}
+	}
+}
+
 func TestApplyMergesDisplayDiagonalOverrides(t *testing.T) {
 	t.Parallel()
 
@@ -85,6 +126,10 @@ func TestApplyMergesDisplayDiagonalOverrides(t *testing.T) {
 		},
 	}
 	options := Options{
+		CurrentDisplayOverride: &model.DisplayOverride{
+			Mode:  "ppi",
+			Value: 123,
+		},
 		DisplayDiagonalOverrides: map[string]float64{
 			"HDMI-1": 31.5,
 			"eDP-1":  14.0,
@@ -98,5 +143,14 @@ func TestApplyMergesDisplayDiagonalOverrides(t *testing.T) {
 	}
 	if got := cfg.Display.DiagonalOverrides["eDP-1"]; got != 14.0 {
 		t.Fatalf("unexpected eDP-1 override after Apply: got %v want 14.0", got)
+	}
+	if cfg.CurrentDisplayOverride == nil {
+		t.Fatal("expected Apply to set current display override")
+	}
+	if got := cfg.CurrentDisplayOverride.Mode; got != "ppi" {
+		t.Fatalf("unexpected current display override mode: got %q want %q", got, "ppi")
+	}
+	if got := cfg.CurrentDisplayOverride.Value; got != 123 {
+		t.Fatalf("unexpected current display override value: got %v want 123", got)
 	}
 }

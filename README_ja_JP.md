@@ -42,6 +42,8 @@ Go リライト版では、Bash スクリプトと並行して実験的な `auto
 ```bash
 go run ./cmd/auto-font-by-ppi --dry-run
 go run ./cmd/auto-font-by-ppi --display eDP-1
+go run ./cmd/auto-font-by-ppi --inch 27
+go run ./cmd/auto-font-by-ppi --ppi 110
 go run ./cmd/auto-font-by-ppi --dry-run --display-diagonal HDMI-1=31.5
 ```
 
@@ -68,6 +70,8 @@ kitty については、各 profile に `kitty_font_size` を定義できます�
 その場合は、対角インチを手動指定してください。
 
 Go CLI では、そのディスプレイに対する手動対角インチ指定があれば、検出された物理サイズより常にこちらを優先して使います。override が無い場合は、まず GNOME Wayland の検出結果を使い、ミリメートル値が欠けていれば `xrandr` から補完し、それでも使える物理サイズが無ければ `PPI=100` を仮定して計算します。
+
+簡易な一時指定用として、`--inch` と `--ppi` も使えます。これらはディスプレイ選択後の selected display に対して適用され、`--display-diagonal` や config の diagonal override より優先されます。`--inch` と `--ppi` を同時に指定した場合は、最後に指定された方が優先されます。
 
 ### コマンドライン
 
@@ -143,6 +147,8 @@ Go CLI の現在の優先順は次のとおりです。
 ```text
 --dry-run
 --display NAME
+--inch INCHES
+--ppi VALUE
 --display-diagonal NAME=INCHES
 --config PATH
 --verbose

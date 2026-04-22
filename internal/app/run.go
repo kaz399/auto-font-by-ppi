@@ -58,6 +58,10 @@ func (r Runner) Run(ctx context.Context, cfg model.Config) error {
 	if err != nil {
 		return err
 	}
+	selected, err = applyCurrentDisplayOverride(cfg, selected)
+	if err != nil {
+		return err
+	}
 
 	selectedProfile, err := profile.SelectProfile(cfg.Profiles, selected.PPI)
 	if err != nil {
@@ -83,6 +87,31 @@ func (r Runner) Run(ctx context.Context, cfg model.Config) error {
 	}
 
 	return r.applyPlan(ctx, plan)
+}
+
+func applyCurrentDisplayOverride(cfg model.Config, selected model.DisplayInfo) (model.DisplayInfo, error) {
+	if cfg.CurrentDisplayOverride == nil {
+		return selected, nil
+	}
+
+	switch cfg.CurrentDisplayOverride.Mode {
+	case "inch":
+		adjusted, err := profile.ApplyDiagonalOverride(selected, cfg.CurrentDisplayOverride.Value)
+		if err != nil {
+			return model.DisplayInfo{}, err
+		}
+		adjusted.PhysicalSizeSource = "cli-inch"
+		return adjusted, nil
+	case "ppi":
+		adjusted, err := profile.ApplyAssumedPPI(selected, cfg.CurrentDisplayOverride.Value)
+		if err != nil {
+			return model.DisplayInfo{}, err
+		}
+		adjusted.PhysicalSizeSource = "cli-ppi"
+		return adjusted, nil
+	default:
+		return model.DisplayInfo{}, fmt.Errorf("unsupported display override mode %q", cfg.CurrentDisplayOverride.Mode)
+	}
 }
 
 func (r Runner) detectDisplays(ctx context.Context, cfg model.Config) ([]model.DisplayInfo, string, error) {
@@ -208,6 +237,10 @@ func formatDisplayComputationNote(displayInfo model.DisplayInfo) string {
 		return fmt.Sprintf(", diagonal override=%.2f in", displayInfo.OverrideDiagonalInches)
 	case "assumed-ppi":
 		return fmt.Sprintf(", assumed PPI=%.2f", displayInfo.AssumedPPI)
+	case "cli-inch":
+		return fmt.Sprintf(", CLI inch override=%.2f in", displayInfo.OverrideDiagonalInches)
+	case "cli-ppi":
+		return fmt.Sprintf(", CLI PPI=%.2f", displayInfo.AssumedPPI)
 	default:
 		return ""
 	}

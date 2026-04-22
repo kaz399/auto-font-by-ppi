@@ -27,6 +27,7 @@ type Config struct {
 	PreferredDisplay       string
 	DisplayBackendPriority []string
 	TargetNames            []string
+	CurrentDisplayOverride *DisplayOverride
 
 	Display  DisplayConfig
 	Fonts    FontFamilies
@@ -38,6 +39,11 @@ type DisplayConfig struct {
 	MinReasonablePPI  float64
 	MaxReasonablePPI  float64
 	DiagonalOverrides map[string]float64
+}
+
+type DisplayOverride struct {
+	Mode  string
+	Value float64
 }
 
 type FontFamilies struct {

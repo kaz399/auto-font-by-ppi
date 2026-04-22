@@ -42,6 +42,8 @@ Example usage:
 ```bash
 go run ./cmd/auto-font-by-ppi --dry-run
 go run ./cmd/auto-font-by-ppi --display eDP-1
+go run ./cmd/auto-font-by-ppi --inch 27
+go run ./cmd/auto-font-by-ppi --ppi 110
 go run ./cmd/auto-font-by-ppi --dry-run --display-diagonal HDMI-1=31.5
 ```
 
@@ -68,6 +70,8 @@ Some monitors report invalid physical size values through EDID. A common failure
 When that happens, provide the diagonal size manually.
 
 On the Go CLI, a configured manual diagonal override always takes precedence for the matching display. Without an override, the Go CLI first uses GNOME Wayland detection, then supplements missing millimeter values from `xrandr` when available, and finally falls back to an assumed `PPI=100` if no usable physical size data is available.
+
+For quick one-off testing, `--inch` and `--ppi` override the selected display after detection. They take precedence over `--display-diagonal` and config-based diagonal overrides. If both `--inch` and `--ppi` are specified, the last one wins.
 
 ### Command line
 
@@ -143,6 +147,8 @@ The current Go CLI supports:
 ```text
 --dry-run
 --display NAME
+--inch INCHES
+--ppi VALUE
 --display-diagonal NAME=INCHES
 --config PATH
 --verbose

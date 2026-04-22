@@ -38,6 +38,7 @@ type Options struct {
 	ConfigPath               string
 	DryRunOverride           *bool
 	PreferredDisplay         string
+	CurrentDisplayOverride   *model.DisplayOverride
 	DisplayDiagonalOverrides map[string]float64
 	Verbose                  bool
 }
@@ -52,6 +53,8 @@ func Parse(args []string) (Options, error) {
 	flagSet.StringVar(&options.ConfigPath, "config", "", "load configuration from the specified path")
 	flagSet.BoolVar(&dryRun, "dry-run", false, "show what would change without applying settings")
 	flagSet.StringVar(&options.PreferredDisplay, "display", "", "select a display by connector name")
+	flagSet.Var(currentDisplayOverrideFlag{target: &options.CurrentDisplayOverride, mode: "inch"}, "inch", "treat the selected display as having the specified diagonal size in inches")
+	flagSet.Var(currentDisplayOverrideFlag{target: &options.CurrentDisplayOverride, mode: "ppi"}, "ppi", "treat the selected display as having the specified PPI")
 	flagSet.Var(displayDiagonalOverridesFlag{target: &options.DisplayDiagonalOverrides}, "display-diagonal", "override a display diagonal in NAME=INCHES form")
 	flagSet.BoolVar(&options.Verbose, "verbose", false, "print more diagnostic information")
 	flagSet.BoolVar(&help, "help", false, "show help")
@@ -80,6 +83,12 @@ func Apply(cfg *model.Config, options Options) {
 
 	if options.PreferredDisplay != "" {
 		cfg.PreferredDisplay = options.PreferredDisplay
+	}
+	if options.CurrentDisplayOverride != nil {
+		cfg.CurrentDisplayOverride = &model.DisplayOverride{
+			Mode:  options.CurrentDisplayOverride.Mode,
+			Value: options.CurrentDisplayOverride.Value,
+		}
 	}
 
 	if len(options.DisplayDiagonalOverrides) > 0 {
@@ -110,6 +119,14 @@ Options:
 
   --display NAME
       Use the specified display name instead of auto-detecting.
+
+  --inch INCHES
+      Treat the selected display as having the specified diagonal size.
+      This overrides config-based display size settings.
+
+  --ppi VALUE
+      Treat the selected display as having the specified PPI.
+      This overrides config-based display size settings.
 
   --display-diagonal NAME=INCHES
       Override a display's physical diagonal size.
@@ -169,4 +186,30 @@ func parseDisplayDiagonalOverride(value string) (string, float64, error) {
 	}
 
 	return name, diagonal, nil
+}
+
+type currentDisplayOverrideFlag struct {
+	target **model.DisplayOverride
+	mode   string
+}
+
+func (f currentDisplayOverrideFlag) String() string {
+	if f.target == nil || *f.target == nil || (*f.target).Mode != f.mode {
+		return ""
+	}
+
+	return strconv.FormatFloat((*f.target).Value, 'f', -1, 64)
+}
+
+func (f currentDisplayOverrideFlag) Set(value string) error {
+	parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	if err != nil || parsed <= 0 {
+		return fmt.Errorf("invalid %s value %q", f.mode, value)
+	}
+
+	*f.target = &model.DisplayOverride{
+		Mode:  f.mode,
+		Value: parsed,
+	}
+	return nil
 }
