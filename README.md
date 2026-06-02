@@ -1,163 +1,147 @@
 # auto-font-by-ppi
 
-Automatically adjust GNOME font settings based on the target display PPI.
+A Go-based CLI utility to automatically adjust GNOME font settings and kitty terminal font sizes based on the target display's PPI (Pixels Per Inch).
 
-`gnome-auto-font-by-ppi.sh` detects the active display, calculates its pixels per inch (PPI), selects a profile, and updates GNOME text scaling and font sizes.
+The tool detects the active display, calculates its PPI, selects a matching font profile, and updates GNOME's `text-scaling-factor` and various font sizes, along with kitty terminal's font size.
 
 ## Features
 
-- Supports Xorg through `xrandr`
-- Supports GNOME Wayland through Mutter DisplayConfig D-Bus
-- Selects the primary display automatically, or a specific display by name
-- Applies either text scaling only or full GNOME font settings
-- Handles broken EDID physical size values with manual monitor size overrides
-- Applies manual diagonal overrides before using detected physical size values on the Go CLI
-- On the Go CLI, supplements missing GNOME Wayland millimeter data from `xrandr` when available
-- On the Go CLI, falls back to an assumed `PPI=100` when no usable physical size data is available
-- On the Go CLI, supports a dedicated `kitty_font_size` per profile
-- Supports command-line options, environment variables, and a config file
+- **Multi-backend detection**:
+  - Uses `xrandr` for Xorg sessions.
+  - Uses Mutter DisplayConfig over D-Bus for GNOME Wayland sessions.
+- **Robust display selection**:
+  - Automatically selects the primary display, or allows manual naming (`--display`).
+  - Supports the `--auto` flag to ignore the preferred display from the config file and detect the best active display dynamically.
+- **Flexible target application**:
+  - Applies text scaling only or full GNOME font settings.
+  - Dynamically updates active kitty terminal instances (kitty target).
+- **Abnormal metrics correction & fallback**:
+  - Supports manual diagonal overrides (`--display-diagonal` or config) for monitors reporting bogus EDID physical dimensions.
+  - Manual overrides always take precedence over detected physical sizes.
+  - Supplements missing GNOME Wayland millimeter values using `xrandr` when available.
+  - Falls back to an assumed `PPI=100` if no usable physical size data can be found.
+- **Per-profile customization**:
+  - Supports a dedicated `kitty_font_size` for each PPI profile.
 
 ## Requirements
 
-- Bash
-- `gsettings`
-- `xrandr` for Xorg sessions
-- `gdbus` and `python3` for GNOME Wayland sessions
+- `gsettings` (required for applying GNOME desktop settings)
+- Xorg sessions: `xrandr`
+- GNOME Wayland sessions: `gdbus` (used automatically along with `xrandr` for fallback completion)
+
+## Installation
+
+Build the binary from the root of the repository:
+
+```bash
+# Build the binary
+go build -o auto-font-by-ppi ./cmd/auto-font-by-ppi
+```
 
 ## Usage
 
-```bash
-./gnome-auto-font-by-ppi.sh --dry-run
-./gnome-auto-font-by-ppi.sh --apply
-./gnome-auto-font-by-ppi.sh --apply --display eDP-1
-./gnome-auto-font-by-ppi.sh --apply --mode scaling_only
-```
-
-## Go CLI Status
-
-The Go rewrite currently provides an experimental `auto-font-by-ppi` CLI alongside the Bash script.
-
-Example usage:
+Basic commands:
 
 ```bash
-go run ./cmd/auto-font-by-ppi --dry-run
-go run ./cmd/auto-font-by-ppi --display eDP-1
-go run ./cmd/auto-font-by-ppi --inch 27
-go run ./cmd/auto-font-by-ppi --ppi 110
-go run ./cmd/auto-font-by-ppi --dry-run --display-diagonal HDMI-1=31.5
+# Run with dry-run to preview changes
+./auto-font-by-ppi --dry-run
+
+# Apply settings (Apply mode is default)
+./auto-font-by-ppi
+
+# Select a specific display by name
+./auto-font-by-ppi --display eDP-1
+
+# Ignore preferred display in config and auto-detect instead
+./auto-font-by-ppi --auto
 ```
 
-The Go CLI reads TOML config from:
+Temporary overrides (applied to the selected display after detection):
+
+```bash
+# Assume the selected display is 27 inches
+./auto-font-by-ppi --inch 27
+
+# Assume the selected display has 110 PPI
+./auto-font-by-ppi --ppi 110
+```
+
+Overriding physical diagonal dimensions for specific displays:
+
+```bash
+# Set manual diagonal override for HDMI-1
+./auto-font-by-ppi --display-diagonal HDMI-1=31.5
+
+# Specify multiple overrides
+./auto-font-by-ppi --display-diagonal HDMI-1=31.5 --display-diagonal eDP-1=14.0
+```
+
+## Config File
+
+By default, the utility reads settings from:
 
 ```text
 ~/.config/auto-font-by-ppi/config.toml
 ```
 
-If that file does not exist, the Go CLI creates a default sample config there automatically and then loads it.
+If the file does not exist, a default configuration with sample settings is automatically generated at that path on the first run.
 
-By default, the Go CLI applies settings immediately. Use `--dry-run` or `dry_run = true` when you want a preview only.
-
-See [examples/config.toml](./examples/config.toml) for the current config format.
-
-`target_names` is the single source of truth for which targets run and in what order. The `target.*` sections contain per-target settings only. By default, kitty is opt-in, so add `"kitty"` to `target_names` when you want it applied.
-
-For kitty, each profile can define `kitty_font_size`. It accepts integers or decimals such as `12.5`. The default `target.kitty.font_size_field` is `kitty_font_size`, and if that field is not set in an older config, the Go CLI falls back to `monospace_font_size`.
-
-## Manual Monitor Size Override
-
-Some monitors report invalid physical size values through EDID. A common failure mode is that the reported size in millimeters matches the pixel resolution, which produces obviously wrong PPI values.
-
-When that happens, provide the diagonal size manually.
-
-On the Go CLI, a configured manual diagonal override always takes precedence for the matching display. Without an override, the Go CLI first uses GNOME Wayland detection, then supplements missing millimeter values from `xrandr` when available, and finally falls back to an assumed `PPI=100` if no usable physical size data is available.
-
-For quick one-off testing, `--inch` and `--ppi` override the selected display after detection. They take precedence over `--display-diagonal` and config-based diagonal overrides. If both `--inch` and `--ppi` are specified, the last one wins.
-
-### Command line
+To specify a custom configuration file path:
 
 ```bash
-./gnome-auto-font-by-ppi.sh --dry-run --display-diagonal HDMI-1=31.5
-./gnome-auto-font-by-ppi.sh --dry-run --display-diagonal HDMI-1=31.5 --display-diagonal eDP-1=14.0
+# Load custom configuration path
+./auto-font-by-ppi --config ./custom-config.toml
 ```
 
-### Environment variable
+See [examples/config.toml](./examples/config.toml) for detailed formatting and options.
 
-```bash
-MONITOR_DIAGONAL_OVERRIDES="HDMI-1=31.5,eDP-1=14.0" ./gnome-auto-font-by-ppi.sh --dry-run
-```
-
-## Config File
-
-By default, the script loads:
-
-```text
-~/.config/gnome-auto-font-by-ppi.conf
-```
-
-You can also specify a custom file:
-
-```bash
-./gnome-auto-font-by-ppi.sh --config ./gnome-auto-font-by-ppi.conf.example --dry-run
-```
-
-Example config:
-
-```bash
-PREFERRED_DISPLAY="HDMI-1"
-APPLY_MODE="full_fonts"
-MONITOR_DIAGONAL_OVERRIDES="HDMI-1=31.5,eDP-1=14.0"
-MIN_REASONABLE_PPI=50
-MAX_REASONABLE_PPI=400
-```
-
-See [gnome-auto-font-by-ppi.conf.example](./gnome-auto-font-by-ppi.conf.example).
+### Key Configuration Fields
+* `dry_run`: Set to `true` to always preview changes without applying them.
+* `preferred_display`: Name of the display to prioritize (e.g., `"HDMI-1"`). This can be temporarily ignored using the `--auto` flag.
+* `target_names`: Array of active targets to apply (e.g., `["gnome", "kitty"]`). Note that kitty is opt-in and disabled by default.
+* `display.diagonal_overrides`: Map of manual diagonal dimensions in inches per connector name.
 
 ## Detection and Fallback Behavior
 
-The script treats display metrics as suspicious when:
+Display physical dimensions are considered suspicious and ignored when:
 
-- Width or height in millimeters is zero or negative
-- Width and height in millimeters exactly match the pixel resolution
-- Calculated PPI is outside the configured reasonable range
+- Millimeter width or height is zero or negative.
+- Millimeter dimensions exactly match the pixel resolution.
+- The calculated PPI falls outside the configured reasonable range (default: 50 to 400).
 
-The Bash script recalculates the physical size and PPI from the diagonal inches when suspicious metrics are detected and a manual diagonal override exists for that display.
+When suspicious metrics are detected, the utility corrects values using the following precedence:
 
-On the Go CLI, the current precedence is:
-
-- Use `display.diagonal_overrides` or `--display-diagonal` when an override exists for the display.
-- Otherwise, use GNOME Wayland detection first when that backend is selected.
-- If GNOME Wayland detection does not provide usable millimeter values, supplement them from `xrandr` when available.
-- If no usable physical size data is available after detection, assume `PPI=100` and derive the physical size from the detected resolution.
+1. Uses `display.diagonal_overrides` or `--display-diagonal` if an override exists.
+2. Uses GNOME Wayland detection first when that backend is active.
+3. If GNOME Wayland detection does not provide usable millimeter values, supplements them from `xrandr`.
+4. If no usable physical size data is available after detection, assumes `PPI=100` and derives dimensions from the resolution.
 
 ## Options
 
 ```text
 --dry-run
---apply
+    Show what would be changed, but do not apply settings.
 --display NAME
---display-diagonal NAME=INCHES
---config PATH
---mode scaling_only|full_fonts
---verbose
---help
-```
-
-The current Go CLI supports:
-
-```text
---dry-run
---display NAME
+    Select a specific display by name instead of auto-detecting.
+--auto
+    Ignore the preferred display in the config file and auto-detect instead. This option cannot be specified together with --display.
 --inch INCHES
+    Treat the selected display as having the specified diagonal size in inches. This overrides config-based display size settings.
 --ppi VALUE
+    Treat the selected display as having the specified PPI. This overrides config-based display size settings.
 --display-diagonal NAME=INCHES
+    Override a display's physical diagonal size.
 --config PATH
+    Load configuration from the specified TOML file.
 --verbose
---help
+    Print more diagnostic information.
+--help, -h
+    Show the help message and exit.
 ```
 
 ## Profiles
 
-The script currently uses these PPI profiles:
+Font settings are selected based on the calculated PPI from the following profiles:
 
 ```text
 110  -> scaling 1.00, UI 11, document 11, monospace 10, titlebar 11, kitty 10

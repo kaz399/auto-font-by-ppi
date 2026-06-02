@@ -38,6 +38,7 @@ type Options struct {
 	ConfigPath               string
 	DryRunOverride           *bool
 	PreferredDisplay         string
+	Auto                     bool
 	CurrentDisplayOverride   *model.DisplayOverride
 	DisplayDiagonalOverrides map[string]float64
 	Verbose                  bool
@@ -53,6 +54,7 @@ func Parse(args []string) (Options, error) {
 	flagSet.StringVar(&options.ConfigPath, "config", "", "load configuration from the specified path")
 	flagSet.BoolVar(&dryRun, "dry-run", false, "show what would change without applying settings")
 	flagSet.StringVar(&options.PreferredDisplay, "display", "", "select a display by connector name")
+	flagSet.BoolVar(&options.Auto, "auto", false, "ignore preferred display config and auto-detect instead")
 	flagSet.Var(currentDisplayOverrideFlag{target: &options.CurrentDisplayOverride, mode: "inch"}, "inch", "treat the selected display as having the specified diagonal size in inches")
 	flagSet.Var(currentDisplayOverrideFlag{target: &options.CurrentDisplayOverride, mode: "ppi"}, "ppi", "treat the selected display as having the specified PPI")
 	flagSet.Var(displayDiagonalOverridesFlag{target: &options.DisplayDiagonalOverrides}, "display-diagonal", "override a display diagonal in NAME=INCHES form")
@@ -68,6 +70,10 @@ func Parse(args []string) (Options, error) {
 		return Options{}, ErrHelpRequested
 	}
 
+	if options.Auto && options.PreferredDisplay != "" {
+		return Options{}, fmt.Errorf("--auto and --display cannot be used together")
+	}
+
 	if dryRun {
 		value := true
 		options.DryRunOverride = &value
@@ -81,7 +87,9 @@ func Apply(cfg *model.Config, options Options) {
 		cfg.DryRun = *options.DryRunOverride
 	}
 
-	if options.PreferredDisplay != "" {
+	if options.Auto {
+		cfg.PreferredDisplay = ""
+	} else if options.PreferredDisplay != "" {
 		cfg.PreferredDisplay = options.PreferredDisplay
 	}
 	if options.CurrentDisplayOverride != nil {
@@ -119,6 +127,10 @@ Options:
 
   --display NAME
       Use the specified display name instead of auto-detecting.
+
+  --auto
+      Ignore the preferred display in the config file and auto-detect instead.
+      This option cannot be specified together with --display.
 
   --inch INCHES
       Treat the selected display as having the specified diagonal size.

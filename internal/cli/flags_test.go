@@ -154,3 +154,46 @@ func TestApplyMergesDisplayDiagonalOverrides(t *testing.T) {
 		t.Fatalf("unexpected current display override value: got %v want 123", got)
 	}
 }
+
+func TestParseAcceptsAutoFlag(t *testing.T) {
+	t.Parallel()
+
+	options, err := Parse([]string{"--auto"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	if !options.Auto {
+		t.Fatal("expected Auto to be true")
+	}
+}
+
+func TestParseRejectsAutoAndDisplayTogether(t *testing.T) {
+	t.Parallel()
+
+	_, err := Parse([]string{"--auto", "--display", "HDMI-1"})
+	if err == nil {
+		t.Fatal("expected Parse to fail when --auto and --display are used together")
+	}
+	if !strings.Contains(err.Error(), "--auto and --display cannot be used together") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestApplyClearsPreferredDisplayWhenAutoIsTrue(t *testing.T) {
+	t.Parallel()
+
+	cfg := model.Config{
+		PreferredDisplay: "HDMI-1",
+	}
+	options := Options{
+		Auto: true,
+	}
+
+	Apply(&cfg, options)
+
+	if cfg.PreferredDisplay != "" {
+		t.Fatalf("expected PreferredDisplay to be cleared, got %q", cfg.PreferredDisplay)
+	}
+}
+
